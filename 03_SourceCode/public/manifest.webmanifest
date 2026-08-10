@@ -1,0 +1,9 @@
+{
+  "id": "./",
+  "name": "M0 PWA 工程脚手架",
+  "short_name": "PWA Scaffold",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "browser"
+}
