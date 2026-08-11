@@ -484,7 +484,7 @@ TODO
 
 ## T209 建立 Rule Repository 最小实现
 
-- 状态：TODO
+- 状态：DONE
 - 目标：统一加载内置规则。
 - 依赖：T201～T208、T212～T214
 - 涉及：`src/infrastructure/rule-repository/`
@@ -494,7 +494,7 @@ TODO
 
 ## T210 建立大众麻将·通用简化版 RulePackage 骨架
 
-- 状态：TODO
+- 状态：DONE
 - 目标：将已批准的 `common-simple@1.0.0` Rule Spec 转录为正式 RulePackage Pipeline。
 - 依赖：T201～T209
 - 验收：
@@ -510,7 +510,7 @@ TODO
 
 ## T211 建立 Build-time Rule Validator
 
-- 状态：TODO
+- 状态：DONE
 - 目标：构建时阻止损坏规则进入产物。
 - 依赖：T206～T210
 - 验收：ID/关系/source/capability/Rule Spec 数量和版本漂移均阻断。
@@ -558,11 +558,13 @@ TODO
 
 ### M2 Gate
 
-- [ ] T201～T214 完成
-- [ ] 大众麻将规则包可由 RuleRepository 加载
-- [ ] UI/Engine 可读取动态牌种、结构张数和状态
-- [ ] 规则包完全是数据，不执行脚本
-- [ ] `common-simple@1.0.0` 的 81/78/3 数量、结构、计分与来源通过 Rule Spec 一致性校验
+- [x] T201～T214 完成
+- [x] 大众麻将规则包可由 RuleRepository 加载
+- [x] UI/Engine 可读取动态牌种、结构张数和状态
+- [x] 规则包完全是数据，不执行脚本
+- [x] `common-simple@1.0.0` 的 81/78/3 数量、结构、计分与来源通过 Rule Spec 一致性校验
+
+> 2026-08-11 M2 Gate 收口：T201～T214 已全部复核为 `DONE`；内置 `common-simple@1.0.0` 可通过 RuleRepository 加载，RulePackage 保持纯数据，构建期 Rule Validator 会阻断 Schema、ID、relation、source、capability、内容完整性、81/78/3 数量和版本漂移。完整命令、非法 fixture 与 Gate 结果见 `docs/verification/m2/T211.md` 和 `docs/verification/m2/gate.md`；M2 Gate 结论为 `PASS`。
 
 ---
 

@@ -1,5 +1,6 @@
 import type { PatternDefinition } from './pattern-definition';
 import { canRuleEnterCalculator, type RuleManifest } from './rule-manifest';
+import type { ScoringDefinition } from './scoring-definition';
 import type { StructureDefinition } from './structure-definition';
 
 export const CAPABILITY_KINDS = ['structure', 'recognizer', 'scoring'] as const;
@@ -21,7 +22,8 @@ export type RuleCalculationBlock = Readonly<{
     | 'UNKNOWN_CAPABILITY'
     | 'CAPABILITY_KIND_MISMATCH'
     | 'PATTERN_CAPABILITY_NOT_DECLARED'
-    | 'STRUCTURE_CAPABILITY_NOT_DECLARED';
+    | 'STRUCTURE_CAPABILITY_NOT_DECLARED'
+    | 'SCORING_CAPABILITY_NOT_DECLARED';
   data: Readonly<Record<string, string>>;
 }>;
 
@@ -71,6 +73,7 @@ export function evaluateRuleCalculationReadiness(
   manifest: Pick<RuleManifest, 'status' | 'engineCompatibility'>,
   patterns: readonly PatternDefinition[],
   structures: readonly StructureDefinition[] = [],
+  scoring?: ScoringDefinition,
 ): RuleCalculationReadiness {
   const blocks: RuleCalculationBlock[] = [];
   const declaredCapabilities = new Set(manifest.engineCompatibility.requiredCapabilities);
@@ -91,6 +94,10 @@ export function evaluateRuleCalculationReadiness(
   });
 
   patterns.forEach((pattern) => {
+    if (!pattern.enabled) {
+      return;
+    }
+
     const capability = getCapability(registry, pattern.recognizerKey);
     if (capability === undefined) {
       blocks.push(unknownCapabilityBlock(pattern.recognizerKey, `pattern:${pattern.patternId}`));
@@ -159,6 +166,41 @@ export function evaluateRuleCalculationReadiness(
             capabilityKey: structure.capabilityKey,
             structureKey: structure.structureKey,
           }),
+        }),
+      );
+    }
+  });
+
+  const scoringCapabilityKeys =
+    scoring === undefined
+      ? []
+      : [scoring.strategyKey, ...(scoring.extras?.map(({ calculatorKey }) => calculatorKey) ?? [])];
+
+  scoringCapabilityKeys.forEach((capabilityKey) => {
+    const capability = getCapability(registry, capabilityKey);
+    if (capability === undefined) {
+      blocks.push(unknownCapabilityBlock(capabilityKey, 'scoring'));
+      return;
+    }
+
+    if (capability.kind !== 'scoring') {
+      blocks.push(
+        Object.freeze({
+          reasonCode: 'CAPABILITY_KIND_MISMATCH',
+          data: Object.freeze({
+            capabilityKey,
+            expectedKind: 'scoring',
+            actualKind: capability.kind,
+          }),
+        }),
+      );
+    }
+
+    if (!declaredCapabilities.has(capabilityKey)) {
+      blocks.push(
+        Object.freeze({
+          reasonCode: 'SCORING_CAPABILITY_NOT_DECLARED',
+          data: Object.freeze({ capabilityKey }),
         }),
       );
     }

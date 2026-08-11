@@ -1,6 +1,7 @@
 export * from './capability-registry';
 export * from './content-integrity';
 export * from './context-definition';
+export * from './encyclopedia-definition';
 export * from './hand-model';
 export * from './legality-definition';
 export * from './pattern-definition';
@@ -8,6 +9,7 @@ export * from './pattern-relation';
 export * from './rule-data';
 export * from './rule-manifest';
 export * from './rule-package';
+export * from './rule-corpus-index';
 export * from './rule-source';
 export * from './scoring-definition';
 export * from './structure-definition';
