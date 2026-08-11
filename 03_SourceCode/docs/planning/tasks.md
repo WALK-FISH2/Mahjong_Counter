@@ -215,7 +215,7 @@ TODO
 
 ## T010 建立基础 CI
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：自动执行 lint/typecheck/test/build。
 - 依赖：T002～T007
 - 涉及：CI 配置
@@ -273,14 +273,14 @@ TODO
 
 ### M0 Gate
 
-- [ ] T001～T013 完成
+- [x] T001～T013 完成
 - [x] `lint/typecheck/test/build` 全通过
 - [x] 项目可静态运行
 - [x] 尚未加入业务规则硬编码
 
 > 2026-08-10 文档一致性修订说明：T013 的职责已收窄为 PWA 工程脚手架，正式 PWA/Offline/Update 仍由 M11 承担。既有代码和 T001～T012 状态不因此改写；T013 当时维持 `REVIEW`，须按修订后的验收标准复核后再重新判定 M0 Gate。
 >
-> 2026-08-11 M0 代码复核：T013 已按收窄后的标准复核为 `DONE`；T010 因 Git 仓库所有权安全检查阻断且 GitHub 托管 CI 未实际验证而维持 `REVIEW`，因此 M0 Gate 尚未通过，不得进入 M1。
+> 2026-08-11 M0 Gate 最终收口：测试分支 `m0-ci-validation` 的 GitHub Actions `CI` 已在提交 `7d7250137847220e93d57cb44efad73c2308c3f8` 实际执行并通过，T010 更新为 `DONE`。T001～T013 已全部复核为 `DONE`，完整证据见 `docs/verification/m0/gate.md`；M0 Gate 结论为 `PASS`。
 
 ---
 
