@@ -6,7 +6,9 @@ const filePath = 'src/domain/index.ts';
 const forbiddenImports = [
   ['React', "import 'react';"],
   ['Zustand', "import 'zustand';"],
+  ['Zod', "import 'zod';"],
   ['Dexie', "import 'dexie';"],
+  ['Schema layer', "import '../schemas/rule-package';"],
   ['Presentation', "import '../pages/example';"],
   ['Infrastructure', "import '../infrastructure/example';"],
 ];

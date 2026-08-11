@@ -411,7 +411,7 @@ TODO
 
 ## T201 定义 RulePackage Schema
 
-- 状态：TODO
+- 状态：DONE
 - 目标：建立规则包顶级组合结构，并明确组合所有子 Schema；不得以 `unknown` 或空对象代替尚未定义的正式模块。
 - 依赖：M1
 - 涉及：`src/domain/rules/`、`src/schemas/rule-package/`
@@ -421,7 +421,7 @@ TODO
 
 ## T202 定义 RuleManifest 与规则状态
 
-- 状态：TODO
+- 状态：DONE
 - 目标：支持 development/test/full。
 - 依赖：T201
 - 验收：开发中规则不可进入 Calculator。
@@ -430,7 +430,7 @@ TODO
 
 ## T203 定义 TileSetDefinition
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则动态声明牌种和最大副本数。
 - 依赖：T201
 - 验收：可表达 27/34/42。
@@ -439,7 +439,7 @@ TODO
 
 ## T204 定义 HandModelDefinition
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则化 13/14 与副露组数。
 - 依赖：T201
 - 验收：Engine/UI 不需写死目标张数。
@@ -448,7 +448,7 @@ TODO
 
 ## T205 定义 ContextDefinition
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则声明上下文动态字段。
 - 依赖：T201、T105
 - 验收：可表达门风、圈风、杠上花等。
@@ -457,7 +457,7 @@ TODO
 
 ## T206 定义 PatternDefinition 与 RuleSource
 
-- 状态：TODO
+- 状态：DONE
 - 目标：番型值、Recognizer Key、来源可追溯。
 - 依赖：T201
 - 验收：每个 Pattern 可引用来源。
@@ -466,7 +466,7 @@ TODO
 
 ## T207 定义 PatternRelation Schema
 
-- 状态：TODO
+- 状态：DONE
 - 目标：支持 covers/mutex/non-repeat。
 - 依赖：T206
 - 验收：关系成员必须存在且无非法环。
@@ -475,7 +475,7 @@ TODO
 
 ## T208 建立 Capability Registry
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则包只能引用可信 Engine 能力。
 - 依赖：T201
 - 验收：未知 capability 阻止计算。
@@ -484,7 +484,7 @@ TODO
 
 ## T209 建立 Rule Repository 最小实现
 
-- 状态：TODO
+- 状态：DONE
 - 目标：统一加载内置规则。
 - 依赖：T201～T208、T212～T214
 - 涉及：`src/infrastructure/rule-repository/`
@@ -494,7 +494,7 @@ TODO
 
 ## T210 建立大众麻将·通用简化版 RulePackage 骨架
 
-- 状态：TODO
+- 状态：DONE
 - 目标：将已批准的 `common-simple@1.0.0` Rule Spec 转录为正式 RulePackage Pipeline。
 - 依赖：T201～T209
 - 验收：
@@ -510,7 +510,7 @@ TODO
 
 ## T211 建立 Build-time Rule Validator
 
-- 状态：TODO
+- 状态：DONE
 - 目标：构建时阻止损坏规则进入产物。
 - 依赖：T206～T210
 - 验收：ID/关系/source/capability/Rule Spec 数量和版本漂移均阻断。
@@ -520,7 +520,7 @@ TODO
 
 ## T212 定义 StructureDefinition
 
-- 状态：TODO
+- 状态：DONE
 - 目标：显式声明可信结构能力与当前规则启用状态。
 - 依赖：T201、T204
 - 验收：
@@ -532,7 +532,7 @@ TODO
 
 ## T213 定义 Scoring / Legality / TemporaryAdjustment Schema
 
-- 状态：TODO
+- 状态：DONE
 - 目标：分别定义 ScoringDefinition、LegalityDefinition、TemporaryAdjustmentDefinition。
 - 依赖：T201、T206
 - 验收：
@@ -545,7 +545,7 @@ TODO
 
 ## T214 建立 RuleSource 与 Content Integrity 基础
 
-- 状态：TODO
+- 状态：DONE
 - 目标：让规则来源、内容 hash 和不可变版本具备统一事实来源。
 - 依赖：T206
 - 验收：
@@ -558,11 +558,13 @@ TODO
 
 ### M2 Gate
 
-- [ ] T201～T214 完成
-- [ ] 大众麻将规则包可由 RuleRepository 加载
-- [ ] UI/Engine 可读取动态牌种、结构张数和状态
-- [ ] 规则包完全是数据，不执行脚本
-- [ ] `common-simple@1.0.0` 的 81/78/3 数量、结构、计分与来源通过 Rule Spec 一致性校验
+- [x] T201～T214 完成
+- [x] 大众麻将规则包可由 RuleRepository 加载
+- [x] UI/Engine 可读取动态牌种、结构张数和状态
+- [x] 规则包完全是数据，不执行脚本
+- [x] `common-simple@1.0.0` 的 81/78/3 数量、结构、计分与来源通过 Rule Spec 一致性校验
+
+> 2026-08-11 M2 Gate 收口：T201～T214 已全部复核为 `DONE`；内置 `common-simple@1.0.0` 可通过 RuleRepository 加载，RulePackage 保持纯数据，构建期 Rule Validator 会阻断 Schema、ID、relation、source、capability、内容完整性、81/78/3 数量和版本漂移。完整命令、非法 fixture 与 Gate 结果见 `docs/verification/m2/T211.md` 和 `docs/verification/m2/gate.md`；M2 Gate 结论为 `PASS`。
 
 ---
 
