@@ -3,8 +3,11 @@ import { z } from 'zod';
 
 import { contextDefinitionsSchema } from './context-definition-schema';
 import { handModelDefinitionSchema } from './hand-model-schema';
+import { patternDefinitionsSchema } from './pattern-definition-schema';
+import { patternRelationDefinitionsSchema } from './pattern-relation-schema';
 import { ruleManifestSchema } from './rule-manifest-schema';
 import { createRulePackageSchema } from './rule-package-schema';
+import { ruleSourceDefinitionsSchema } from './rule-source-schema';
 import { tileSetDefinitionSchema } from './tile-set-schema';
 
 const identifierSchema = z.string().trim().min(1);
@@ -13,20 +16,6 @@ const structureDefinitionsSchema = z.array(
     structureKey: identifierSchema,
     capabilityKey: identifierSchema,
     enabled: z.boolean(),
-  }),
-);
-const patternDefinitionsSchema = z.array(
-  z.strictObject({
-    patternId: identifierSchema,
-    recognizerKey: identifierSchema,
-    enabled: z.boolean(),
-  }),
-);
-const relationDefinitionsSchema = z.array(
-  z.strictObject({
-    type: z.literal('covers'),
-    winner: identifierSchema,
-    covered: identifierSchema,
   }),
 );
 const scoringDefinitionSchema = z.strictObject({
@@ -44,10 +33,6 @@ const encyclopediaDefinitionSchema = z.strictObject({
   sourceArticles: z.array(z.strictObject({ sourceId: identifierSchema })),
   knownLimitations: z.array(z.string()),
 });
-const ruleSourceDefinitionsSchema = z.array(
-  z.strictObject({ sourceId: identifierSchema, title: z.string().trim().min(1) }),
-);
-
 const schema = createRulePackageSchema({
   manifest: ruleManifestSchema,
   tileSet: tileSetDefinitionSchema,
@@ -55,7 +40,7 @@ const schema = createRulePackageSchema({
   structures: structureDefinitionsSchema,
   contexts: contextDefinitionsSchema,
   patterns: patternDefinitionsSchema,
-  relations: relationDefinitionsSchema,
+  relations: patternRelationDefinitionsSchema,
   scoring: scoringDefinitionSchema,
   legality: legalityDefinitionSchema,
   temporaryAdjustments: temporaryAdjustmentDefinitionsSchema,
@@ -73,7 +58,7 @@ const validPackage = {
     status: 'test',
     engineCompatibility: {
       minEngineVersion: '0.0.0',
-      requiredCapabilities: ['structure.fixture'],
+      requiredCapabilities: ['structure.fixture', 'recognizer.fixture', 'recognizer.covered'],
     },
     releasedAt: '2026-08-11T00:00:00.000Z',
     contentHash: 'fixture-content-hash',
@@ -95,7 +80,26 @@ const validPackage = {
     { structureKey: 'fixture-structure', capabilityKey: 'structure.fixture', enabled: true },
   ],
   contexts: [],
-  patterns: [{ patternId: 'fixture-pattern', recognizerKey: 'recognizer.fixture', enabled: true }],
+  patterns: [
+    {
+      patternId: 'fixture-pattern',
+      name: 'Fixture Pattern',
+      recognizerKey: 'recognizer.fixture',
+      value: 1,
+      unit: 'point',
+      enabled: true,
+      sourceRefs: ['fixture-source'],
+    },
+    {
+      patternId: 'fixture-covered-pattern',
+      name: 'Fixture Covered Pattern',
+      recognizerKey: 'recognizer.covered',
+      value: 1,
+      unit: 'point',
+      enabled: true,
+      sourceRefs: ['fixture-source'],
+    },
+  ],
   relations: [{ type: 'covers', winner: 'fixture-pattern', covered: 'fixture-covered-pattern' }],
   scoring: { strategyKey: 'scoring.fixture', unit: 'point' },
   legality: { minimumFan: 0 },
@@ -107,7 +111,13 @@ const validPackage = {
     sourceArticles: [{ sourceId: 'fixture-source' }],
     knownLimitations: [],
   },
-  sources: [{ sourceId: 'fixture-source', title: 'Fixture Source' }],
+  sources: [
+    {
+      sourceId: 'fixture-source',
+      title: 'Fixture Source',
+      sourceType: 'corroborating',
+    },
+  ],
 } as const;
 
 describe('RulePackage top-level schema composition', () => {

@@ -457,7 +457,7 @@ TODO
 
 ## T206 定义 PatternDefinition 与 RuleSource
 
-- 状态：TODO
+- 状态：DONE
 - 目标：番型值、Recognizer Key、来源可追溯。
 - 依赖：T201
 - 验收：每个 Pattern 可引用来源。
@@ -466,7 +466,7 @@ TODO
 
 ## T207 定义 PatternRelation Schema
 
-- 状态：TODO
+- 状态：DONE
 - 目标：支持 covers/mutex/non-repeat。
 - 依赖：T206
 - 验收：关系成员必须存在且无非法环。
@@ -475,7 +475,7 @@ TODO
 
 ## T208 建立 Capability Registry
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则包只能引用可信 Engine 能力。
 - 依赖：T201
 - 验收：未知 capability 阻止计算。
