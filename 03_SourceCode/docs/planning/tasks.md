@@ -288,7 +288,7 @@ TODO
 
 ## T101 定义 TileCode 与 Tile Metadata
 
-- 状态：TODO
+- 状态：DONE
 - 目标：建立 42 种稳定牌编码。
 - 依赖：M0
 - 涉及：`src/domain/mahjong/tile.ts`
@@ -303,7 +303,7 @@ TODO
 
 ## T102 定义 Meld 模型
 
-- 状态：TODO
+- 状态：DONE
 - 目标：建模吃、碰、明杠、暗杠。
 - 依赖：T101
 - 涉及：`meld.ts`
@@ -316,7 +316,7 @@ TODO
 
 ## T103 定义 HandSnapshot
 
-- 状态：TODO
+- 状态：DONE
 - 目标：严格分离 concealed/melds/flowers/winningTile。
 - 依赖：T101～T102
 - 涉及：`hand.ts`
@@ -326,7 +326,7 @@ TODO
 
 ## T104 定义 TransientInputSession
 
-- 状态：TODO
+- 状态：DONE
 - 目标：副露临时录入与正式牌面分离。
 - 依赖：T102～T103
 - 涉及：`meld-input-state.ts`
@@ -338,7 +338,7 @@ TODO
 
 ## T105 定义 WinContext
 
-- 状态：TODO
+- 状态：DONE
 - 目标：建立点炮/自摸与动态上下文字段。
 - 依赖：T101
 - 涉及：`context.ts`
