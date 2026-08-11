@@ -348,7 +348,7 @@ TODO
 
 ## T106 定义 CalculatorDocument
 
-- 状态：TODO
+- 状态：DONE
 - 目标：建立当前计算唯一事实对象。
 - 依赖：T103～T105
 - 涉及：`calculator-document.ts`
@@ -359,7 +359,7 @@ TODO
 
 ## T107 实现全局牌数统计
 
-- 状态：TODO
+- 状态：DONE
 - 目标：跨 concealed/melds/winningTile 正确统计普通牌。
 - 依赖：T103
 - 涉及：`validation.ts`
@@ -369,7 +369,7 @@ TODO
 
 ## T108 实现结构张数计算
 
-- 状态：TODO
+- 状态：DONE
 - 目标：支持杠按结构 3、花牌不计结构。
 - 依赖：T103
 - 涉及：`hand-count.ts`
@@ -379,7 +379,7 @@ TODO
 
 ## T109 建立 Domain 硬校验
 
-- 状态：TODO
+- 状态：DONE
 - 目标：统一检查第五张、非法牌、副露基本结构。
 - 依赖：T107～T108
 - 涉及：`validation.ts`
@@ -389,7 +389,7 @@ TODO
 
 ## T110 建立 CalculatorDocument revision 工具
 
-- 状态：TODO
+- 状态：DONE
 - 目标：任何计算语义变化都生成新 revision。
 - 依赖：T106
 - 涉及：Application/Domain helper
@@ -399,9 +399,11 @@ TODO
 
 ### M1 Gate
 
-- [ ] T101～T110 完成
-- [ ] Domain 无 React/Storage 依赖
-- [ ] 牌数、结构张数与临时副露测试通过
+- [x] T101～T110 完成
+- [x] Domain 无 React/Storage 依赖
+- [x] 牌数、结构张数与临时副露测试通过
+
+> 2026-08-11 M1 Gate 收口：T101～T110 已全部复核为 `DONE`；Domain Model、全局牌数、结构/实体张数、硬校验、临时副露隔离与 revision 测试均通过。完整命令、结果与范围说明见 `docs/verification/m1/gate.md`；M1 Gate 结论为 `PASS`。
 
 ---
 
