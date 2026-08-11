@@ -153,7 +153,7 @@ TODO
 
 ## T005 配置 Vitest
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：建立 Domain/规则单元测试基础。
 - 依赖：T001
 - 涉及：Vitest 配置、`src/test/`
@@ -163,7 +163,7 @@ TODO
 
 ## T006 配置 React Testing Library
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：建立组件行为测试能力。
 - 依赖：T005
 - 涉及：组件测试环境
@@ -173,7 +173,7 @@ TODO
 
 ## T007 配置 Playwright
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：建立浏览器 E2E 基础。
 - 依赖：T001
 - 涉及：`playwright.config.*`
@@ -185,7 +185,7 @@ TODO
 
 ## T008 建立版本常量
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：独立管理所有正式应用、引擎和数据格式版本。
 - 依赖：T001
 - 涉及：`src/app/version/`
@@ -203,7 +203,7 @@ TODO
 
 ## T009 建立基础 Router 与四主页面 Shell
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：创建 Calculator、Encyclopedia、Saved、Settings 页面壳。
 - 依赖：T001
 - 涉及：`src/app/routes/`、`src/pages/`
@@ -215,7 +215,7 @@ TODO
 
 ## T010 建立基础 CI
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：自动执行 lint/typecheck/test/build。
 - 依赖：T002～T007
 - 涉及：CI 配置
@@ -225,7 +225,7 @@ TODO
 
 ## T011 建立 Zustand 基础状态容器
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：建立符合 Application 边界的类型化 Zustand Store 基础。
 - 依赖：T004
 - 涉及：`src/application/state/`
@@ -240,7 +240,7 @@ TODO
 
 ## T012 建立应用级 Error Boundary
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：避免未捕获的渲染错误造成无说明白屏。
 - 依赖：T006
 - 涉及：`src/app/errors/`、应用根入口
@@ -256,7 +256,7 @@ TODO
 
 ## T013 建立 PWA 最小工程骨架
 
-- 状态：REVIEW
+- 状态：DONE
 - 目标：只建立后续 PWA/Offline/Update 任务可扩展的工程脚手架，不宣称正式安装或离线能力完成。
 - 依赖：T007
 - 涉及：Vite PWA 配置、构建产物、App Shell smoke
@@ -273,12 +273,14 @@ TODO
 
 ### M0 Gate
 
-- [ ] T001～T013 完成
-- [ ] `lint/typecheck/test/build` 全通过
-- [ ] 项目可静态运行
-- [ ] 尚未加入业务规则硬编码
+- [x] T001～T013 完成
+- [x] `lint/typecheck/test/build` 全通过
+- [x] 项目可静态运行
+- [x] 尚未加入业务规则硬编码
 
-> 2026-08-10 文档一致性修订说明：T013 的职责已收窄为 PWA 工程脚手架，正式 PWA/Offline/Update 仍由 M11 承担。既有代码和 T001～T012 状态不因此改写；T013 维持 `REVIEW`，应按修订后的验收标准复核后再重新判定 M0 Gate。该复核完成前不得仅依据旧 Gate 结论进入 M1。
+> 2026-08-10 文档一致性修订说明：T013 的职责已收窄为 PWA 工程脚手架，正式 PWA/Offline/Update 仍由 M11 承担。既有代码和 T001～T012 状态不因此改写；T013 当时维持 `REVIEW`，须按修订后的验收标准复核后再重新判定 M0 Gate。
+>
+> 2026-08-11 M0 Gate 最终收口：测试分支 `m0-ci-validation` 的 GitHub Actions `CI` 已在提交 `7d7250137847220e93d57cb44efad73c2308c3f8` 实际执行并通过，T010 更新为 `DONE`。T001～T013 已全部复核为 `DONE`，完整证据见 `docs/verification/m0/gate.md`；M0 Gate 结论为 `PASS`。
 
 ---
 

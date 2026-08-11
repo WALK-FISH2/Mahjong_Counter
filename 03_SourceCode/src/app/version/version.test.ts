@@ -21,4 +21,8 @@ describe('version constants', () => {
     expect(SHARE_FORMAT_VERSION).toBeGreaterThan(0);
     expect(SINGLE_EXAMPLE_FORMAT_VERSION).toBeGreaterThan(0);
   });
+
+  it('reserves RULE_VERSION ownership for a future RulePackage', async () => {
+    expect(await import('./index')).not.toHaveProperty('RULE_VERSION');
+  });
 });
