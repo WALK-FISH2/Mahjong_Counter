@@ -411,7 +411,7 @@ TODO
 
 ## T201 定义 RulePackage Schema
 
-- 状态：TODO
+- 状态：DONE
 - 目标：建立规则包顶级组合结构，并明确组合所有子 Schema；不得以 `unknown` 或空对象代替尚未定义的正式模块。
 - 依赖：M1
 - 涉及：`src/domain/rules/`、`src/schemas/rule-package/`
@@ -421,7 +421,7 @@ TODO
 
 ## T202 定义 RuleManifest 与规则状态
 
-- 状态：TODO
+- 状态：DONE
 - 目标：支持 development/test/full。
 - 依赖：T201
 - 验收：开发中规则不可进入 Calculator。
@@ -430,7 +430,7 @@ TODO
 
 ## T203 定义 TileSetDefinition
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则动态声明牌种和最大副本数。
 - 依赖：T201
 - 验收：可表达 27/34/42。
@@ -439,7 +439,7 @@ TODO
 
 ## T204 定义 HandModelDefinition
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则化 13/14 与副露组数。
 - 依赖：T201
 - 验收：Engine/UI 不需写死目标张数。
@@ -448,7 +448,7 @@ TODO
 
 ## T205 定义 ContextDefinition
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则声明上下文动态字段。
 - 依赖：T201、T105
 - 验收：可表达门风、圈风、杠上花等。
