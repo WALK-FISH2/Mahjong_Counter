@@ -1,5 +1,6 @@
 export * from './context-definition-schema';
 export * from './hand-model-schema';
+export * from './legality-definition-schema';
 export * from './pattern-catalog-schema';
 export * from './pattern-definition-schema';
 export * from './pattern-relation-schema';
@@ -7,4 +8,7 @@ export * from './rule-data-schema';
 export * from './rule-manifest-schema';
 export * from './rule-package-schema';
 export * from './rule-source-schema';
+export * from './scoring-definition-schema';
+export * from './structure-definition-schema';
+export * from './temporary-adjustment-definition-schema';
 export * from './tile-set-schema';

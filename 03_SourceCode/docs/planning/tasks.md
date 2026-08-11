@@ -520,7 +520,7 @@ TODO
 
 ## T212 定义 StructureDefinition
 
-- 状态：TODO
+- 状态：DONE
 - 目标：显式声明可信结构能力与当前规则启用状态。
 - 依赖：T201、T204
 - 验收：
@@ -532,7 +532,7 @@ TODO
 
 ## T213 定义 Scoring / Legality / TemporaryAdjustment Schema
 
-- 状态：TODO
+- 状态：DONE
 - 目标：分别定义 ScoringDefinition、LegalityDefinition、TemporaryAdjustmentDefinition。
 - 依赖：T201、T206
 - 验收：
@@ -545,7 +545,7 @@ TODO
 
 ## T214 建立 RuleSource 与 Content Integrity 基础
 
-- 状态：TODO
+- 状态：DONE
 - 目标：让规则来源、内容 hash 和不可变版本具备统一事实来源。
 - 依赖：T206
 - 验收：

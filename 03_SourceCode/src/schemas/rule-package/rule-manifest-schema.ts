@@ -5,10 +5,15 @@ import {
   type EngineCompatibility,
   type RuleManifest,
 } from '../../domain/rules/rule-manifest';
+import { SHA256_CONTENT_HASH_PATTERN } from '../../domain/rules/content-integrity';
 
 const identifierSchema = z.string().trim().min(1).max(128);
 const versionSchema = z.string().trim().min(1).max(64);
 const capabilitySchema = z.string().trim().min(1).max(128);
+
+export const contentHashSchema = z
+  .string()
+  .regex(SHA256_CONTENT_HASH_PATTERN, 'contentHash must be a lowercase SHA-256 hex digest');
 
 const engineCompatibilitySchema = z
   .strictObject({
@@ -51,7 +56,7 @@ export const ruleManifestSchema = z
     recommended: z.boolean().optional(),
     engineCompatibility: engineCompatibilitySchema,
     releasedAt: z.iso.datetime({ offset: true }),
-    contentHash: z.string().trim().min(1).max(512),
+    contentHash: contentHashSchema,
   })
   .transform((manifest): RuleManifest => ({
     ruleId: manifest.ruleId,

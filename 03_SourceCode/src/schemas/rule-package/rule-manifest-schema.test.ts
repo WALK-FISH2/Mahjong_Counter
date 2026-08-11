@@ -15,7 +15,7 @@ function manifest(status: 'development' | 'test' | 'full') {
       requiredCapabilities: ['structure.fixture'],
     },
     releasedAt: '2026-08-11T00:00:00.000Z',
-    contentHash: 'fixture-hash',
+    contentHash: '0'.repeat(64),
   } as const;
 }
 
@@ -50,6 +50,10 @@ describe('RuleManifest schema and status behavior', () => {
     ).toBe(false);
     expect(
       ruleManifestSchema.safeParse({ ...manifest('test'), scriptUrl: 'https://example.test' })
+        .success,
+    ).toBe(false);
+    expect(
+      ruleManifestSchema.safeParse({ ...manifest('test'), contentHash: 'not-a-sha256-hash' })
         .success,
     ).toBe(false);
   });

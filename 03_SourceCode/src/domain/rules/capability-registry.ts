@@ -1,5 +1,6 @@
 import type { PatternDefinition } from './pattern-definition';
 import { canRuleEnterCalculator, type RuleManifest } from './rule-manifest';
+import type { StructureDefinition } from './structure-definition';
 
 export const CAPABILITY_KINDS = ['structure', 'recognizer', 'scoring'] as const;
 
@@ -19,7 +20,8 @@ export type RuleCalculationBlock = Readonly<{
     | 'RULE_STATUS_NOT_CALCULABLE'
     | 'UNKNOWN_CAPABILITY'
     | 'CAPABILITY_KIND_MISMATCH'
-    | 'PATTERN_CAPABILITY_NOT_DECLARED';
+    | 'PATTERN_CAPABILITY_NOT_DECLARED'
+    | 'STRUCTURE_CAPABILITY_NOT_DECLARED';
   data: Readonly<Record<string, string>>;
 }>;
 
@@ -68,6 +70,7 @@ export function evaluateRuleCalculationReadiness(
   registry: CapabilityRegistry,
   manifest: Pick<RuleManifest, 'status' | 'engineCompatibility'>,
   patterns: readonly PatternDefinition[],
+  structures: readonly StructureDefinition[] = [],
 ): RuleCalculationReadiness {
   const blocks: RuleCalculationBlock[] = [];
   const declaredCapabilities = new Set(manifest.engineCompatibility.requiredCapabilities);
@@ -115,6 +118,46 @@ export function evaluateRuleCalculationReadiness(
           data: Object.freeze({
             capabilityKey: pattern.recognizerKey,
             patternId: pattern.patternId,
+          }),
+        }),
+      );
+    }
+  });
+
+  structures.forEach((structure) => {
+    if (structure.supportStatus === 'NOT_SUPPORTED_IN_V0_1') {
+      return;
+    }
+
+    const capability = getCapability(registry, structure.capabilityKey);
+    if (capability === undefined) {
+      blocks.push(
+        unknownCapabilityBlock(structure.capabilityKey, `structure:${structure.structureKey}`),
+      );
+      return;
+    }
+
+    if (capability.kind !== 'structure') {
+      blocks.push(
+        Object.freeze({
+          reasonCode: 'CAPABILITY_KIND_MISMATCH',
+          data: Object.freeze({
+            capabilityKey: structure.capabilityKey,
+            expectedKind: 'structure',
+            actualKind: capability.kind,
+            structureKey: structure.structureKey,
+          }),
+        }),
+      );
+    }
+
+    if (structure.enabled && !declaredCapabilities.has(structure.capabilityKey)) {
+      blocks.push(
+        Object.freeze({
+          reasonCode: 'STRUCTURE_CAPABILITY_NOT_DECLARED',
+          data: Object.freeze({
+            capabilityKey: structure.capabilityKey,
+            structureKey: structure.structureKey,
           }),
         }),
       );

@@ -3,29 +3,18 @@ import { z } from 'zod';
 
 import { contextDefinitionsSchema } from './context-definition-schema';
 import { handModelDefinitionSchema } from './hand-model-schema';
+import { legalityDefinitionSchema } from './legality-definition-schema';
 import { patternDefinitionsSchema } from './pattern-definition-schema';
 import { patternRelationDefinitionsSchema } from './pattern-relation-schema';
 import { ruleManifestSchema } from './rule-manifest-schema';
 import { createRulePackageSchema } from './rule-package-schema';
 import { ruleSourceDefinitionsSchema } from './rule-source-schema';
+import { scoringDefinitionSchema } from './scoring-definition-schema';
+import { structureDefinitionsSchema } from './structure-definition-schema';
+import { temporaryAdjustmentDefinitionsSchema } from './temporary-adjustment-definition-schema';
 import { tileSetDefinitionSchema } from './tile-set-schema';
 
 const identifierSchema = z.string().trim().min(1);
-const structureDefinitionsSchema = z.array(
-  z.strictObject({
-    structureKey: identifierSchema,
-    capabilityKey: identifierSchema,
-    enabled: z.boolean(),
-  }),
-);
-const scoringDefinitionSchema = z.strictObject({
-  strategyKey: identifierSchema,
-  unit: identifierSchema,
-});
-const legalityDefinitionSchema = z.strictObject({ minimumFan: z.number().nonnegative() });
-const temporaryAdjustmentDefinitionsSchema = z.array(
-  z.strictObject({ adjustmentId: identifierSchema, valueType: z.literal('number') }),
-);
 const encyclopediaDefinitionSchema = z.strictObject({
   intro: z.array(z.string()),
   patternArticles: z.array(z.strictObject({ patternId: identifierSchema })),
@@ -61,7 +50,7 @@ const validPackage = {
       requiredCapabilities: ['structure.fixture', 'recognizer.fixture', 'recognizer.covered'],
     },
     releasedAt: '2026-08-11T00:00:00.000Z',
-    contentHash: 'fixture-content-hash',
+    contentHash: '0'.repeat(64),
   },
   tileSet: {
     enabledTiles: ['m1', 'm2', 'm3'],
@@ -77,7 +66,12 @@ const validPackage = {
     flowerPolicy: 'none',
   },
   structures: [
-    { structureKey: 'fixture-structure', capabilityKey: 'structure.fixture', enabled: true },
+    {
+      structureKey: 'standard-meld-pair',
+      capabilityKey: 'structure.fixture',
+      enabled: true,
+      supportStatus: 'SUPPORTED',
+    },
   ],
   contexts: [],
   patterns: [
@@ -101,9 +95,21 @@ const validPackage = {
     },
   ],
   relations: [{ type: 'covers', winner: 'fixture-pattern', covered: 'fixture-covered-pattern' }],
-  scoring: { strategyKey: 'scoring.fixture', unit: 'point' },
-  legality: { minimumFan: 0 },
-  temporaryAdjustments: [{ adjustmentId: 'minimum-fan', valueType: 'number' }],
+  scoring: {
+    strategyKey: 'scoring.fixture',
+    unit: 'point',
+    parameters: {},
+    cap: { enabled: false, value: null },
+    extras: [],
+  },
+  legality: { minimumFan: 0, onMissingRequiredContext: 'incomplete-context' },
+  temporaryAdjustments: [
+    {
+      adjustmentId: 'minimum-fan',
+      target: { module: 'legality', field: 'minimumFan' },
+      valueConstraint: { valueType: 'number', minimum: 0 },
+    },
+  ],
   encyclopedia: {
     intro: ['fixture'],
     patternArticles: [{ patternId: 'fixture-pattern' }],
