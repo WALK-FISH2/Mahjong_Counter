@@ -20,9 +20,10 @@ describe('CalculatorPage Batch 11 interaction', () => {
     expect(screen.getAllByText('测试版')[0]).toBeVisible();
     expect(screen.getByText('v1.0.0')).toBeVisible();
     expect(screen.getByText('选择规则')).toBeVisible();
-    expect(layout?.querySelectorAll('h2')).toHaveLength(4);
+    expect(layout?.querySelectorAll('h2')).toHaveLength(5);
     expect([...layout!.querySelectorAll('h2')].map((heading) => heading.textContent)).toEqual([
       '选牌器',
+      '吃碰杠花',
       '已录入牌面',
       '和牌条件',
       '分析结果',
@@ -74,7 +75,7 @@ describe('CalculatorPage Batch 11 interaction', () => {
 
     await user.click(within(palette).getByRole('button', { name: /春，已使用 0 张/ }));
 
-    expect(screen.getByRole('status')).toHaveTextContent('花牌不能加入暗手牌');
+    expect(screen.getByRole('status')).toHaveTextContent('不能加入当前结构录入');
     expect(store.getState().document.hand.concealed).toEqual([]);
     expect(store.getState().document.hand.flowers).toEqual([]);
   });

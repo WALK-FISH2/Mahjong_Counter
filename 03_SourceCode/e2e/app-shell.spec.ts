@@ -101,3 +101,42 @@ test('supports the Batch 11 calculator input flow at mobile and desktop widths',
   await expect(page.getByRole('button', { name: '撤回一万' })).toHaveCount(3);
   expect(consoleIssues).toEqual([]);
 });
+
+test('supports the Batch 12 temporary meld and winning-tile flow', async ({ page }) => {
+  const consoleIssues = collectConsoleIssues(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+
+  const palette = page.locator('.tile-palette');
+  const selectTile = async (tile: string) => palette.locator(`[data-tile-code="${tile}"]`).click();
+
+  await page.getByRole('button', { name: '吃' }).click();
+  await selectTile('m1');
+  await selectTile('m2');
+  await page.getByRole('button', { name: '碰' }).click();
+  const guard = page.getByRole('dialog', { name: '吃牌尚未完成' });
+  await expect(guard.getByRole('button', { name: '继续完成吃牌' })).toBeVisible();
+  await expect(guard.getByRole('button', { name: '放弃本次吃牌' })).toBeVisible();
+  await expect(guard.getByRole('button', { name: '留在当前录入流程' })).toBeVisible();
+  await guard.getByRole('button', { name: '留在当前录入流程' }).click();
+
+  await selectTile('p3');
+  await expect(page.getByRole('status')).toContainText('前两张已保留');
+  await selectTile('m3');
+  await expect(page.getByLabel('吃牌组')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '录入吃牌' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: '花牌' }).click();
+  await selectTile('spring');
+  await expect(page.getByLabel('已录入花牌')).toBeVisible();
+
+  await page.getByRole('button', { name: '选择胡牌张' }).click();
+  await selectTile('east');
+  await expect(page.getByRole('button', { name: '撤回胡牌张东风' })).toBeVisible();
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.getByLabel('吃牌组')).toBeVisible();
+  await expect(page.getByRole('button', { name: '撤回胡牌张东风' })).toBeVisible();
+  expect(consoleIssues).toEqual([]);
+});
