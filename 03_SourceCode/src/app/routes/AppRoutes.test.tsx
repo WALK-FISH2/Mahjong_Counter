@@ -12,7 +12,8 @@ describe('main routes', () => {
   it('opens the calculator from the default route', async () => {
     render(<App />);
 
-    expect(await screen.findByRole('heading', { name: '算番' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '选牌器' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: '算番' })).toBeVisible();
   });
 
   it('navigates to all four page shells', async () => {

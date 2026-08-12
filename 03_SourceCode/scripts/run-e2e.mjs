@@ -16,10 +16,14 @@ const previewServer = await preview({
 
 try {
   const playwrightCliPath = fileURLToPath(import.meta.resolve('@playwright/test/cli'));
-  const testProcess = spawn(process.execPath, [playwrightCliPath, 'test'], {
-    env: process.env,
-    stdio: 'inherit',
-  });
+  const testProcess = spawn(
+    process.execPath,
+    [playwrightCliPath, 'test', ...process.argv.slice(2)],
+    {
+      env: process.env,
+      stdio: 'inherit',
+    },
+  );
 
   const exitCode = await new Promise((resolve, reject) => {
     testProcess.once('error', reject);

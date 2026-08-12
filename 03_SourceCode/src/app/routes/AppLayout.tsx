@@ -1,4 +1,6 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavigationCoordinator } from './NavigationCoordinator';
+import { navigationStore } from './navigation-store';
 
 const navigationItems = [
   { label: '算番', to: '/calculator' },
@@ -8,15 +10,29 @@ const navigationItems = [
 ] as const;
 
 export function AppLayout() {
+  const location = useLocation();
+
   return (
     <div className="app-shell">
+      <NavigationCoordinator />
       <main className="app-main">
-        <Outlet />
+        <Outlet
+          context={{ restoreCalculatorScroll: navigationStore.getState().calculatorScrollY }}
+        />
       </main>
 
       <nav className="primary-navigation" aria-label="主导航">
         {navigationItems.map((item) => (
-          <NavLink className="primary-navigation__link" key={item.to} to={item.to}>
+          <NavLink
+            className="primary-navigation__link"
+            key={item.to}
+            to={item.to}
+            onClick={() => {
+              if (location.pathname === '/calculator' && item.to !== '/calculator') {
+                navigationStore.getState().recordCalculatorScroll(window.scrollY);
+              }
+            }}
+          >
             {item.label}
           </NavLink>
         ))}

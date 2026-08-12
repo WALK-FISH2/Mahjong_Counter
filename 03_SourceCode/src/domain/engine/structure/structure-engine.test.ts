@@ -10,6 +10,7 @@ const HAND_MODEL: HandModelDefinition = {
   readyStructuralTileCount: 13,
   requiredMeldCount: 4,
   allowedMeldTypes: ['chow', 'pung', 'open-kong', 'concealed-kong'],
+  openKongPolicy: { distinction: 'undifferentiated', allowedKinds: ['direct', 'added'] },
   maxDeclaredMelds: 4,
   flowerPolicy: 'separate',
 };

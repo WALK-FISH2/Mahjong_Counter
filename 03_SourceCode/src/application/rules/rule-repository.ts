@@ -22,10 +22,17 @@ export class RuleRepositoryError extends Error {
   }
 }
 
+export type RuleCatalogEntry = Readonly<{
+  manifest: RuleManifest;
+  aliases: readonly string[];
+  resultImpactVersion: string;
+}>;
+
 export interface RuleRepository {
   getInstalledRule(ref: RuleRef): Promise<RulePackageDefinition>;
   listInstalledRules(): Promise<readonly RuleManifest[]>;
   listAvailableRules(): Promise<readonly RuleManifest[]>;
+  listRuleCatalog(): Promise<readonly RuleCatalogEntry[]>;
   downloadRule(ref: RuleRef): Promise<void>;
   removeRule(ref: RuleRef): Promise<void>;
 }
