@@ -3,12 +3,14 @@ import type { RuleRef } from '../../domain/mahjong/calculator-document';
 import type { CapabilityRegistry } from '../../domain/rules/capability-registry';
 import type { RuleManifest } from '../../domain/rules/rule-manifest';
 import type { RulePackageDefinition } from '../../domain/rules/rule-package';
+import type { PatternRecognizerRegistry } from '../../domain/engine/pattern/pattern-recognizer';
 import { RulePackageValidationError, validateRulePackageInput } from './validate-rule-package';
 
 export type BuiltInRuleRegistration = Readonly<{
   ref: RuleRef;
   input: unknown;
   capabilities: CapabilityRegistry;
+  patternRecognizers?: PatternRecognizerRegistry;
 }>;
 
 function refKey(ref: RuleRef): string {
@@ -51,7 +53,11 @@ export class BuiltInRuleRepository implements RuleRepository {
       return existing;
     }
 
-    const loaded = validateRulePackageInput(registration.input, registration.capabilities)
+    const loaded = validateRulePackageInput(
+      registration.input,
+      registration.capabilities,
+      registration.patternRecognizers,
+    )
       .then((rulePackage) => {
         if (
           rulePackage.manifest.ruleId !== registration.ref.ruleId ||

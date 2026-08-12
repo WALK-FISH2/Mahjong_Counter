@@ -670,7 +670,7 @@ TODO
 
 ## T401 实现 DerivedFacts
 
-- 状态：TODO
+- 状态：DONE
 - 目标：统一派生花色、字牌、门清、面子等事实。
 - 依赖：M3
 - 验收：Recognizer 不重复计算公共事实。
@@ -679,7 +679,7 @@ TODO
 
 ## T402 建立 PatternRecognizer Registry
 
-- 状态：TODO
+- 状态：DONE
 - 目标：按 recognizerKey 调用可信识别器。
 - 依赖：T206、T401
 - 验收：未知 key 阻止规则加载。
@@ -688,7 +688,7 @@ TODO
 
 ## T403 实现大众麻将首批基础番型 Recognizer
 
-- 状态：TODO
+- 状态：DONE
 - 目标：以 `docs/rules/common-simple/rule-spec-v1.0.md` 为唯一规则事实依据，逐项实现 `common-simple@1.0.0` 的 78 个启用番型。
 - 依赖：T402
 - 验收：
@@ -700,7 +700,7 @@ TODO
 
 ## T404 实现 Pattern Relation Resolver
 
-- 状态：TODO
+- 状态：DONE
 - 目标：处理 covers/mutex/non-repeat。
 - 依赖：T207、T403
 - 验收：被排除番型保留原因。
@@ -709,7 +709,7 @@ TODO
 
 ## T405 实现 Scoring Strategy 基础框架
 
-- 状态：TODO
+- 状态：DONE
 - 目标：支持规则原生单位和大众麻将首版计分。
 - 依赖：T404
 - 验收：不强制所有规则统一单位。

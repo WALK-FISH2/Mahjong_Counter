@@ -5,10 +5,27 @@ import {
   COMMON_SIMPLE_RULE_REF,
   createCommonSimpleRuleRepository,
 } from './common-simple-rule-repository';
+import { commonSimplePatternRecognizerRegistry } from '../../content/rules/common-simple/pattern-recognizers';
 import { BuiltInRuleRepository } from './built-in-rule-repository';
 import { commonSimpleRulePackageInput } from '../../content/rules/common-simple/rule-package';
 
 describe('BuiltInRuleRepository', () => {
+  it('fails closed when a declared recognizer has no installed implementation', async () => {
+    const repository = new BuiltInRuleRepository([
+      {
+        ref: COMMON_SIMPLE_RULE_REF,
+        input: commonSimpleRulePackageInput,
+        capabilities: commonSimpleCapabilityRegistry,
+        patternRecognizers: {
+          recognizers: commonSimplePatternRecognizerRegistry.recognizers.slice(1),
+        },
+      },
+    ]);
+
+    await expect(repository.getInstalledRule(COMMON_SIMPLE_RULE_REF)).rejects.toMatchObject({
+      reasonCode: 'RULE_CAPABILITY_UNAVAILABLE',
+    });
+  });
   it('loads the built-in rule without network access and returns immutable data', async () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')

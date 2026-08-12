@@ -4,6 +4,7 @@ import type { Plugin } from 'vite';
 
 import { commonSimpleRuleCorpusIndexInput } from '../../src/content/rules/common-simple/rule-corpus-index';
 import { commonSimpleRulePackageInput } from '../../src/content/rules/common-simple/rule-package';
+import { commonSimplePatternRecognizerRegistry } from '../../src/content/rules/common-simple/pattern-recognizers';
 import { COMMON_SIMPLE_VALIDATION_CONTRACT } from '../../src/content/rules/common-simple/validation-contract';
 import { validateBuiltInRulePackage } from '../../src/infrastructure/rule-validation/build-time-rule-validator';
 import { commonSimpleCapabilityRegistry } from '../../src/infrastructure/rule-repository/common-simple-rule-repository';
@@ -20,6 +21,7 @@ export function commonSimpleRuleValidationPlugin(): Plugin {
         rulePackageInput: commonSimpleRulePackageInput,
         ruleCorpusInput: commonSimpleRuleCorpusIndexInput,
         capabilityRegistry: commonSimpleCapabilityRegistry,
+        patternRecognizerRegistry: commonSimplePatternRecognizerRegistry,
         ruleSpecMarkdown,
         contract: COMMON_SIMPLE_VALIDATION_CONTRACT,
       });

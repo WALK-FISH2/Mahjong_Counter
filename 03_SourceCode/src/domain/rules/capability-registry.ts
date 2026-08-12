@@ -74,6 +74,7 @@ export function evaluateRuleCalculationReadiness(
   patterns: readonly PatternDefinition[],
   structures: readonly StructureDefinition[] = [],
   scoring?: ScoringDefinition,
+  implementedRecognizerKeys?: readonly string[],
 ): RuleCalculationReadiness {
   const blocks: RuleCalculationBlock[] = [];
   const declaredCapabilities = new Set(manifest.engineCompatibility.requiredCapabilities);
@@ -127,6 +128,15 @@ export function evaluateRuleCalculationReadiness(
             patternId: pattern.patternId,
           }),
         }),
+      );
+    }
+
+    if (
+      implementedRecognizerKeys !== undefined &&
+      !implementedRecognizerKeys.includes(pattern.recognizerKey)
+    ) {
+      blocks.push(
+        unknownCapabilityBlock(pattern.recognizerKey, `implementation:${pattern.patternId}`),
       );
     }
   });

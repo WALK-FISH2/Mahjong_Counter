@@ -72,6 +72,25 @@ describe('Capability Registry', () => {
     ]);
   });
 
+  it('blocks a declared recognizer capability when no trusted implementation is installed', () => {
+    const registry = createCapabilityRegistry([
+      { capabilityKey: 'recognizer.fixturePattern', kind: 'recognizer' },
+    ]);
+    const readiness = evaluateRuleCalculationReadiness(
+      registry,
+      manifest(['recognizer.fixturePattern']),
+      patterns,
+      [],
+      undefined,
+      [],
+    );
+
+    expect(readiness.canCalculate).toBe(false);
+    expect(readiness.blocks).toHaveLength(1);
+    expect(readiness.blocks[0]?.reasonCode).toBe('UNKNOWN_CAPABILITY');
+    expect(readiness.blocks[0]?.data.referencedBy).toBe('implementation:fixturePattern');
+  });
+
   it('rejects malformed or duplicate trusted registry entries', () => {
     expect(() => createCapabilityRegistry([{ capabilityKey: '   ', kind: 'recognizer' }])).toThrow(
       RangeError,
