@@ -177,3 +177,88 @@ test('supports the Batch 13 dynamic context and floating analysis status', async
   expect(await actionBar.evaluate((element) => getComputedStyle(element).position)).toBe('sticky');
   expect(consoleIssues).toEqual([]);
 });
+
+test('supports Batch 13A onboarding, rule picker, Replace Guard, and navigation state', async ({
+  page,
+}) => {
+  const consoleIssues = collectConsoleIssues(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+
+  const onboarding = page.getByLabel('首次使用引导');
+  await expect(onboarding).toContainText('当前使用大众麻将规则');
+  await expect(onboarding).toContainText('胡牌张在固定独立区域单独录入');
+  await onboarding.getByRole('button', { name: '知道了' }).click();
+
+  const oneWan = page.locator('[data-tile-code="m1"]');
+  await oneWan.click();
+  await expect(page.getByRole('button', { name: '撤回一万' })).toBeVisible();
+
+  await page.getByRole('link', { name: '规则百科' }).click();
+  await expect(page).toHaveURL(/#\/rules$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/calculator$/);
+  await expect(page.getByRole('button', { name: '撤回一万' })).toBeVisible();
+
+  await page.getByRole('button', { name: '选择规则' }).click();
+  const picker = page.getByRole('dialog', { name: '选择规则' });
+  await expect(picker.getByLabel('搜索名称或别名')).toBeVisible();
+  await picker.getByLabel('搜索名称或别名').fill('大众麻将');
+  await expect(picker).toContainText('最近使用');
+  await expect(picker.getByRole('button', { name: '当前规则' })).toBeDisabled();
+  await page.goBack();
+  await expect(picker).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '撤回一万' })).toBeVisible();
+
+  await page.getByRole('button', { name: '新建牌面' }).click();
+  const replaceGuard = page.getByRole('dialog', { name: '确认替换当前计算' });
+  await replaceGuard.getByRole('button', { name: '取消' }).click();
+  await expect(page.getByRole('button', { name: '撤回一万' })).toBeVisible();
+  await page.getByRole('button', { name: '新建牌面' }).click();
+  await page
+    .getByRole('dialog', { name: '确认替换当前计算' })
+    .getByRole('button', { name: '确认替换' })
+    .click();
+  await expect(page.getByRole('button', { name: '撤回一万' })).toHaveCount(0);
+
+  await page.getByRole('link', { name: '设置' }).click();
+  await page.getByRole('button', { name: '下次进入时重播引导' }).click();
+  await page.getByRole('link', { name: '算番' }).click();
+  await expect(page.getByLabel('首次使用引导')).toBeVisible();
+  expect(consoleIssues).toEqual([]);
+});
+
+test('restores a reasonable Calculator scroll position after module navigation', async ({
+  page,
+}) => {
+  const consoleIssues = collectConsoleIssues(page);
+
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto('/#/calculator');
+  await page.getByLabel('首次使用引导').getByRole('button', { name: '知道了' }).click();
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const before = await page.evaluate(() => window.scrollY);
+  expect(before).toBeGreaterThan(0);
+
+  await page.getByRole('link', { name: '设置' }).click();
+  await expect(page).toHaveURL(/#\/settings$/);
+  await page.getByRole('link', { name: '算番' }).click();
+  await expect(page).toHaveURL(/#\/calculator$/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  expect(consoleIssues).toEqual([]);
+});
+
+test('records the T525 small-size tile readability evidence', async ({ page }, testInfo) => {
+  const consoleIssues = collectConsoleIssues(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+  await expect(page.locator('.tile-palette')).toBeVisible();
+  await expect(page.locator('[data-tile-asset]')).toHaveCount(42);
+  await page.screenshot({
+    path: `docs/verification/m5/screenshots/T525-${testInfo.project.name}-390x844.png`,
+    fullPage: true,
+  });
+  expect(consoleIssues).toEqual([]);
+});

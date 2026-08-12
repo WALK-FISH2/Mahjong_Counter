@@ -57,6 +57,10 @@ describe('BuiltInRuleRepository', () => {
     await expect(repository.listAvailableRules()).resolves.toEqual([
       expect.objectContaining(COMMON_SIMPLE_RULE_REF),
     ]);
+    const [catalogEntry] = await repository.listRuleCatalog();
+    expect(catalogEntry?.aliases).toEqual(['大众麻将', '通用简化版']);
+    expect(catalogEntry?.resultImpactVersion).toBe('1.0.0');
+    expect(catalogEntry?.manifest).toMatchObject(COMMON_SIMPLE_RULE_REF);
   });
 
   it('reports deterministic errors for missing or mutating operations', async () => {

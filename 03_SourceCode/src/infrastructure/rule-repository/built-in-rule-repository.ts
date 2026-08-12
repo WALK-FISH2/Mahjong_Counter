@@ -1,4 +1,8 @@
-import { RuleRepositoryError, type RuleRepository } from '../../application/rules/rule-repository';
+import {
+  RuleRepositoryError,
+  type RuleCatalogEntry,
+  type RuleRepository,
+} from '../../application/rules/rule-repository';
 import type { RuleRef } from '../../domain/mahjong/calculator-document';
 import type { CapabilityRegistry } from '../../domain/rules/capability-registry';
 import type { RuleManifest } from '../../domain/rules/rule-manifest';
@@ -11,6 +15,8 @@ export type BuiltInRuleRegistration = Readonly<{
   input: unknown;
   capabilities: CapabilityRegistry;
   patternRecognizers?: PatternRecognizerRegistry;
+  aliases?: readonly string[];
+  resultImpactVersion?: string;
 }>;
 
 function refKey(ref: RuleRef): string {
@@ -92,6 +98,19 @@ export class BuiltInRuleRepository implements RuleRepository {
 
   async listAvailableRules(): Promise<readonly RuleManifest[]> {
     return this.listInstalledRules();
+  }
+
+  async listRuleCatalog(): Promise<readonly RuleCatalogEntry[]> {
+    return Promise.all(
+      [...this.#registrations.values()].map(async ({ ref, aliases, resultImpactVersion }) => {
+        const manifest = (await this.getInstalledRule(ref)).manifest;
+        return Object.freeze({
+          manifest,
+          aliases: Object.freeze([...(aliases ?? [])]),
+          resultImpactVersion: resultImpactVersion ?? manifest.ruleVersion,
+        });
+      }),
+    );
   }
 
   downloadRule(ref: RuleRef): Promise<void> {

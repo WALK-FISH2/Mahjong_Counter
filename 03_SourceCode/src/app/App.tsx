@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
 import { HashRouter } from 'react-router-dom';
 
-import { loadCalculatorStore } from './bootstrap/calculator-bootstrap';
+import { loadCalculatorRuntime, type CalculatorRuntime } from './bootstrap/calculator-bootstrap';
 import { AppRoutes } from './routes/AppRoutes';
-import type { CalculatorStore } from '../application/calculator/calculator-store';
 
 export function App() {
-  const [calculatorStore, setCalculatorStore] = useState<CalculatorStore>();
+  const [calculatorRuntime, setCalculatorRuntime] = useState<CalculatorRuntime>();
   const [calculatorLoadFailed, setCalculatorLoadFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
 
-    loadCalculatorStore().then(
-      (store) => {
+    loadCalculatorRuntime().then(
+      (runtime) => {
         if (active) {
-          setCalculatorStore(store);
+          setCalculatorRuntime(runtime);
         }
       },
       () => {
@@ -32,7 +31,10 @@ export function App() {
 
   return (
     <HashRouter>
-      <AppRoutes calculatorStore={calculatorStore} calculatorLoadFailed={calculatorLoadFailed} />
+      <AppRoutes
+        calculatorRuntime={calculatorRuntime}
+        calculatorLoadFailed={calculatorLoadFailed}
+      />
     </HashRouter>
   );
 }

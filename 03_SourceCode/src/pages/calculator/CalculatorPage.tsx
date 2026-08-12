@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
+import { useOutletContext } from 'react-router-dom';
 
 import {
   getAddedKongUpgradeTile,
@@ -11,6 +12,19 @@ import {
   type CalculatorStore,
   type CalculatorTransientInputKind,
 } from '../../application/calculator/calculator-store';
+import type { CalculatorRuntime } from '../../app/bootstrap/calculator-bootstrap';
+import {
+  consumeOnboarding,
+  confirmTestingRule,
+  recordRecentlyUsedRule,
+  requiresTestingRuleConfirmation,
+} from '../../application/preferences';
+import {
+  createNewHandReplacement,
+  createRuleSwitchReplacement,
+  type RuleSwitchCompatibilityMode,
+} from '../../application/calculator/replace-calculator';
+import type { RuleCatalogEntry } from '../../application/rules/rule-repository';
 import type { OpenKongKind } from '../../domain/mahjong/meld';
 import type { TileCode } from '../../domain/mahjong/tile';
 import { countHandTilesByCode } from '../../domain/mahjong/validation';
@@ -24,10 +38,22 @@ import { TransientInputPanel } from '../../features/tile-input/TransientInputPan
 import { WinningTileConfirmation } from '../../features/tile-input/WinningTileConfirmation';
 import { WinContextPanel } from '../../features/win-context/WinContextPanel';
 import { CalculatorHeader } from './CalculatorHeader';
+import { CalculatorOnboarding } from '../../features/onboarding/CalculatorOnboarding';
+import { RulePickerDialog } from '../../features/rule-switch/RulePickerDialog';
+import { RuleSwitchDialog } from '../../features/rule-switch/RuleSwitchDialog';
+import { TestingRuleConfirmationDialog } from '../../features/rule-switch/TestingRuleConfirmationDialog';
+import { navigationStore } from '../../app/routes/navigation-store';
 
 export type CalculatorPageProps = Readonly<{
   store?: CalculatorStore | undefined;
+  runtime?: CalculatorRuntime | undefined;
   loadFailed?: boolean;
+}>;
+
+type OnboardingState = Readonly<{ showRuleNotice: boolean; showInputGuide: boolean }>;
+type ReplacementPrompt = Readonly<{
+  message: string;
+  resolve: (confirmed: boolean) => void;
 }>;
 
 type PendingChowAction = Readonly<
@@ -90,7 +116,13 @@ function rejectionMessage(reasonCode: CalculatorInputRejection): string {
   }
 }
 
-function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
+type LoadedCalculatorPageProps = Readonly<{
+  store: CalculatorStore;
+  runtime?: CalculatorRuntime | undefined;
+}>;
+
+function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
+  const outletContext = useOutletContext<{ restoreCalculatorScroll?: number } | null>();
   const analysisSectionRef = useRef<HTMLElement>(null);
   const [inputNotice, setInputNotice] = useState<string | null>(null);
   const [selectingWinningTile, setSelectingWinningTile] = useState(false);
@@ -98,6 +130,17 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
   const [dismissedConfirmationRevision, setDismissedConfirmationRevision] = useState<number | null>(
     null,
   );
+  const [showRulePicker, setShowRulePicker] = useState(false);
+  const [pendingRuleSwitch, setPendingRuleSwitch] = useState<RuleCatalogEntry | null>(null);
+  const [pendingTestingRule, setPendingTestingRule] = useState<RuleCatalogEntry | null>(null);
+  const [pendingTestingAction, setPendingTestingAction] = useState<
+    'analysis' | 'rule-switch' | null
+  >(null);
+  const [replacementPrompt, setReplacementPrompt] = useState<ReplacementPrompt | null>(null);
+  const [onboarding, setOnboarding] = useState<OnboardingState>({
+    showRuleNotice: false,
+    showInputGuide: false,
+  });
   const document = useStore(store, (state) => state.document);
   const rulePackage = useStore(store, (state) => state.rulePackage);
   const concealedSortMode = useStore(store, (state) => state.concealedSortMode);
@@ -132,6 +175,10 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
   const clearCorrectionIssue = useStore(store, (state) => state.clearCorrectionIssue);
   const startAnalysis = useStore(store, (state) => state.startAnalysis);
   const cancelAnalysis = useStore(store, (state) => state.cancelAnalysis);
+  const undoRuleSwitch = useStore(store, (state) => state.undoRuleSwitch);
+  const ruleSwitchUndo = useStore(store, (state) => state.ruleSwitchUndo);
+  const modalStack = useStore(navigationStore, (state) => state.modalStack);
+  const activeModal = modalStack.at(-1) ?? null;
   const displayedTiles = getDisplayedConcealedTiles(document, concealedSortMode);
   const formalTileCounts = countHandTilesByCode(document.hand);
   const inputTileCounts = getInputLimitTileCounts(document, editingMeldId);
@@ -148,6 +195,110 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
     analysisResult,
     analysisAvailable,
   });
+
+  useEffect(() => {
+    if (runtime === undefined) return;
+    let active = true;
+    void consumeOnboarding(runtime.preferencesPort).then((nextOnboarding) => {
+      if (active) setOnboarding(nextOnboarding);
+    });
+    return () => {
+      active = false;
+    };
+  }, [runtime]);
+
+  useEffect(() => {
+    const scrollY = outletContext?.restoreCalculatorScroll ?? 0;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => window.scrollTo({ top: scrollY }));
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [outletContext?.restoreCalculatorScroll]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const topModal = navigationStore.getState().modalStack.at(-1);
+      if (topModal !== undefined) navigationStore.getState().closeModal(topModal);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const openModal = (modalId: string, replaceCurrent = false): void => {
+    const currentModal = navigationStore.getState().modalStack.at(-1);
+    if (replaceCurrent && currentModal !== undefined) {
+      navigationStore.getState().closeModal(currentModal);
+      navigationStore.getState().openModal(modalId);
+      window.history.replaceState({ mahjongModal: modalId }, '', window.location.href);
+      return;
+    }
+    navigationStore.getState().openModal(modalId);
+    window.history.pushState({ mahjongModal: modalId }, '', window.location.href);
+  };
+
+  const closeActiveModal = (): void => {
+    if (navigationStore.getState().modalStack.length === 0) return;
+    window.history.back();
+  };
+
+  const confirmReplacement = (message: string) =>
+    new Promise<boolean>((resolve) => {
+      setReplacementPrompt({ message, resolve });
+      openModal('replace-guard', true);
+    });
+
+  const closeRulePicker = () => {
+    setShowRulePicker(false);
+    closeActiveModal();
+  };
+
+  const chooseRule = async (entry: RuleCatalogEntry): Promise<void> => {
+    if (runtime === undefined) return;
+    if (
+      await requiresTestingRuleConfirmation(
+        runtime.preferencesPort,
+        entry.manifest,
+        entry.resultImpactVersion,
+      )
+    ) {
+      setPendingTestingRule(entry);
+      setPendingTestingAction('rule-switch');
+      openModal('testing-rule-confirmation', true);
+      return;
+    }
+    setShowRulePicker(false);
+    setPendingRuleSwitch(entry);
+    openModal('rule-switch', true);
+  };
+
+  const performRuleSwitch = async (
+    entry: RuleCatalogEntry,
+    mode: RuleSwitchCompatibilityMode,
+  ): Promise<void> => {
+    if (runtime === undefined) return;
+    const currentDocument = store.getState().document;
+    const result = await runtime.replaceGuard.prepareToReplaceCalculator(
+      'rule-switch',
+      () => confirmReplacement('切换规则会替换当前计算状态，是否继续？'),
+      async () =>
+        createRuleSwitchReplacement(
+          currentDocument,
+          await runtime.ruleRepository.getInstalledRule(entry.manifest),
+          mode,
+        ),
+    );
+    setPendingRuleSwitch(null);
+    if (result.status === 'replaced') {
+      await recordRecentlyUsedRule(runtime.preferencesPort, entry.manifest);
+      setInputNotice('规则已切换；可撤销本次切换。');
+    } else if (result.status === 'draft-protection-failed') {
+      setInputNotice('当前计算保护失败，未切换规则。');
+    }
+  };
 
   const applyResult = (
     result: { accepted: true } | { accepted: false; reasonCode: CalculatorInputRejection },
@@ -245,7 +396,50 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
 
   return (
     <article className="calculator-page" aria-labelledby="calculator-title">
-      <CalculatorHeader manifest={rulePackage.manifest} document={document} />
+      <CalculatorHeader
+        manifest={rulePackage.manifest}
+        document={document}
+        onNewHand={
+          runtime === undefined
+            ? undefined
+            : () => {
+                void runtime.replaceGuard
+                  .prepareToReplaceCalculator(
+                    'new-hand',
+                    () => confirmReplacement('新建牌面会清除本次计算状态，是否继续？'),
+                    () => createNewHandReplacement(store.getState().rulePackage),
+                  )
+                  .then((result) => {
+                    if (result.status === 'replaced') setInputNotice('已新建牌面。');
+                    if (result.status === 'draft-protection-failed') {
+                      setInputNotice('当前计算保护失败，未新建牌面。');
+                    }
+                  });
+              }
+        }
+        onOpenRulePicker={
+          runtime === undefined
+            ? undefined
+            : () => {
+                setShowRulePicker(true);
+                openModal('rule-picker');
+              }
+        }
+      />
+
+      <CalculatorOnboarding
+        {...onboarding}
+        onDismiss={() => setOnboarding({ showRuleNotice: false, showInputGuide: false })}
+      />
+
+      {ruleSwitchUndo !== null && (
+        <p className="input-notice" role="status">
+          规则已切换。
+          <button className="secondary-action" type="button" onClick={undoRuleSwitch}>
+            撤销规则切换
+          </button>
+        </p>
+      )}
 
       <div className="calculator-layout" data-testid="calculator-layout">
         <div className="calculator-layout__input">
@@ -398,9 +592,30 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
         status={calculatorStatus}
         hasWinningTile={document.hand.winningTile !== null}
         onAnalyze={() => {
-          void startAnalysis().then((result) => {
+          void (async () => {
+            if (runtime !== undefined && rulePackage.manifest.status === 'test') {
+              const entry = (await runtime.ruleRepository.listRuleCatalog()).find(
+                ({ manifest }) =>
+                  manifest.ruleId === rulePackage.manifest.ruleId &&
+                  manifest.ruleVersion === rulePackage.manifest.ruleVersion,
+              );
+              if (
+                entry !== undefined &&
+                (await requiresTestingRuleConfirmation(
+                  runtime.preferencesPort,
+                  entry.manifest,
+                  entry.resultImpactVersion,
+                ))
+              ) {
+                setPendingTestingRule(entry);
+                setPendingTestingAction('analysis');
+                openModal('testing-rule-confirmation');
+                return;
+              }
+            }
+            const result = await startAnalysis();
             if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
-          });
+          })();
         }}
         onCancel={cancelAnalysis}
         onViewResult={() => {
@@ -421,14 +636,108 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
           }}
         />
       )}
+
+      {runtime !== undefined && showRulePicker && activeModal === 'rule-picker' && (
+        <RulePickerDialog
+          ruleRepository={runtime.ruleRepository}
+          preferencesPort={runtime.preferencesPort}
+          currentRuleRef={document.ruleRef}
+          onSelect={(entry) => void chooseRule(entry)}
+          onClose={closeRulePicker}
+        />
+      )}
+
+      {pendingTestingRule !== null &&
+        runtime !== undefined &&
+        activeModal === 'testing-rule-confirmation' && (
+          <TestingRuleConfirmationDialog
+            rule={pendingTestingRule}
+            onCancel={() => {
+              setPendingTestingRule(null);
+              setPendingTestingAction(null);
+              closeActiveModal();
+            }}
+            onConfirm={() => {
+              void confirmTestingRule(
+                runtime.preferencesPort,
+                pendingTestingRule.manifest,
+                pendingTestingRule.resultImpactVersion,
+              ).then(() => {
+                const entry = pendingTestingRule;
+                setPendingTestingRule(null);
+                if (pendingTestingAction === 'analysis') {
+                  setPendingTestingAction(null);
+                  closeActiveModal();
+                  void startAnalysis().then((result) => {
+                    if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
+                  });
+                } else {
+                  setPendingTestingAction(null);
+                  setShowRulePicker(false);
+                  setPendingRuleSwitch(entry);
+                  openModal('rule-switch', true);
+                }
+              });
+            }}
+          />
+        )}
+
+      {pendingRuleSwitch !== null && activeModal === 'rule-switch' && (
+        <RuleSwitchDialog
+          target={pendingRuleSwitch}
+          onCancel={() => {
+            setPendingRuleSwitch(null);
+            closeActiveModal();
+          }}
+          onChoose={(mode) => void performRuleSwitch(pendingRuleSwitch, mode)}
+        />
+      )}
+
+      {replacementPrompt !== null && activeModal === 'replace-guard' && (
+        <div className="dialog-backdrop">
+          <section
+            className="calculator-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="replace-guard-title"
+          >
+            <h2 id="replace-guard-title">确认替换当前计算</h2>
+            <p>{replacementPrompt.message}</p>
+            <div className="dialog-actions">
+              <button
+                className="danger-action"
+                type="button"
+                onClick={() => {
+                  replacementPrompt.resolve(true);
+                  setReplacementPrompt(null);
+                  closeActiveModal();
+                }}
+              >
+                确认替换
+              </button>
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={() => {
+                  replacementPrompt.resolve(false);
+                  setReplacementPrompt(null);
+                  closeActiveModal();
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </article>
   );
 }
 
-export function CalculatorPage({ store, loadFailed = false }: CalculatorPageProps) {
+export function CalculatorPage({ store, runtime, loadFailed = false }: CalculatorPageProps) {
   if (store === undefined) {
     return <CalculatorLoading failed={loadFailed} />;
   }
 
-  return <LoadedCalculatorPage store={store} />;
+  return <LoadedCalculatorPage store={store} runtime={runtime} />;
 }

@@ -26,6 +26,8 @@ export function createCommonSimpleRuleRepository(): BuiltInRuleRepository {
       input: commonSimpleRulePackageInput,
       capabilities: commonSimpleCapabilityRegistry,
       patternRecognizers: commonSimplePatternRecognizerRegistry,
+      aliases: ['大众麻将', '通用简化版'],
+      resultImpactVersion: '1.0.0',
     },
   ]);
 }

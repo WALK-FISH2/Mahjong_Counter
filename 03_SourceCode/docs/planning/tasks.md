@@ -956,7 +956,7 @@ TODO
 
 ## T520 建立统一 Replace Guard
 
-- 状态：TODO
+- 状态：DONE
 - 目标：建立所有 Calculator 替换动作共享的 Application Guard 与 Draft Port。
 - 依赖：T106、T501
 - 涉及：`src/application/calculator/`、导航协调层
@@ -970,7 +970,7 @@ TODO
 
 ## T521 实现 Navigation State、返回键与滚动保持
 
-- 状态：TODO
+- 状态：DONE
 - 目标：统一主模块状态、Modal Stack、详情返回和 Calculator 滚动恢复。
 - 依赖：T009、T520
 - 验收：
@@ -982,7 +982,7 @@ TODO
 
 ## T522 实现 New Hand 与 Rule Switch 流程
 
-- 状态：TODO
+- 状态：DONE
 - 目标：落实新建清理规则和规则切换兼容三选项。
 - 依赖：T520、T203、T106
 - 验收：
@@ -994,7 +994,7 @@ TODO
 
 ## T523 实现 Rule Picker
 
-- 状态：TODO
+- 状态：DONE
 - 目标：提供规则分组、搜索、最近使用和状态控制。
 - 依赖：T202、T502、T520
 - 验收：
@@ -1006,7 +1006,7 @@ TODO
 
 ## T524 实现首次引导与 TESTING 规则确认
 
-- 状态：TODO
+- 状态：DONE
 - 目标：实现首次轻提示、操作引导及按结果影响版本记录的测试规则确认。
 - 依赖：T523
 - 验收：
@@ -1020,7 +1020,7 @@ TODO
 
 ## T525 建立 Tile Asset Manifest 与小尺寸验收
 
-- 状态：TODO
+- 状态：DONE
 - 目标：记录麻将牌资产版权事实并验证小屏辨识度。
 - 依赖：T503
 - 验收：
@@ -1033,11 +1033,13 @@ TODO
 
 ### M5 Gate
 
-- [ ] 用户可完整录入合法牌面
-- [ ] 临时副露流程符合最新需求
-- [ ] UI 不自行计算番型
-- [ ] Rule Picker、首次引导、Replace Guard、返回键和状态保持通过
-- [ ] Tile Asset Manifest 与小尺寸验收通过
+- [x] 用户可完整录入合法牌面
+- [x] 临时副露流程符合最新需求
+- [x] UI 不自行计算番型
+- [x] Rule Picker、首次引导、Replace Guard、返回键和状态保持通过
+- [x] Tile Asset Manifest 与小尺寸验收通过
+
+Gate 证据：`docs/verification/m5/gate.md`
 
 ---
 

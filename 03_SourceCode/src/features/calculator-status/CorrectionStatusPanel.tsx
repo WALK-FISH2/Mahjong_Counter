@@ -1,14 +1,21 @@
 import { useRef } from 'react';
 
-import type { CalculatorCorrectionIssue } from '../../application/calculator/calculator-store';
-import { getTileMetadata, type HandValidationIssue } from '../../domain/mahjong';
+import type {
+  CalculatorCorrectionIssue,
+  CalculatorCorrectionSource,
+} from '../../application/calculator/calculator-store';
+import { getTileMetadata } from '../../domain/mahjong';
 
 export type CorrectionStatusPanelProps = Readonly<{
   issues: readonly CalculatorCorrectionIssue[];
   onClearIssue: (issueId: string) => void;
 }>;
 
-function locationLabel(issue: HandValidationIssue): string {
+function locationLabel(issue: CalculatorCorrectionSource): string {
+  if (issue.reasonCode === 'RULE_CONTEXT_NOT_AVAILABLE') return `条件 ${issue.data.contextId}`;
+  if (issue.reasonCode === 'RULE_FLOWERS_NOT_SUPPORTED') {
+    return `花牌第 ${issue.data.flowerIndex + 1} 张`;
+  }
   if (!('location' in issue.data)) {
     if ('meldId' in issue.data) return `副露 ${issue.data.meldId}`;
     if ('tile' in issue.data) return getTileMetadata(issue.data.tile).chineseName;
@@ -27,7 +34,7 @@ function locationLabel(issue: HandValidationIssue): string {
   }
 }
 
-function issueMessage(issue: HandValidationIssue): string {
+function issueMessage(issue: CalculatorCorrectionSource): string {
   switch (issue.reasonCode) {
     case 'TILE_NOT_ENABLED':
       return '该牌不属于当前规则启用牌集。';
@@ -43,6 +50,16 @@ function issueMessage(issue: HandValidationIssue): string {
       return '该副露缺少稳定标识。';
     case 'DUPLICATE_MELD_ID':
       return '牌面中存在重复的副露标识。';
+    case 'RULE_MELD_TYPE_NOT_ALLOWED':
+      return '该副露类型不属于当前规则允许范围。';
+    case 'RULE_MELD_LIMIT_EXCEEDED':
+      return '该副露超过当前规则允许的组数上限。';
+    case 'RULE_OPEN_KONG_KIND_NOT_ALLOWED':
+      return '该明杠类型不属于当前规则允许范围。';
+    case 'RULE_FLOWERS_NOT_SUPPORTED':
+      return '当前规则不支持花牌。';
+    case 'RULE_CONTEXT_NOT_AVAILABLE':
+      return '该和牌条件不属于当前规则。';
   }
 }
 

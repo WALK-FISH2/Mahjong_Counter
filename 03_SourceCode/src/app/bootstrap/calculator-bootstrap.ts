@@ -2,6 +2,14 @@ import {
   createCalculatorStore,
   type CalculatorStore,
 } from '../../application/calculator/calculator-store';
+import {
+  InMemoryCalculatorDraftPort,
+  createCalculatorReplaceGuard,
+} from '../../application/calculator/replace-calculator';
+import {
+  InMemoryCalculatorPreferencesPort,
+  recordRecentlyUsedRule,
+} from '../../application/preferences';
 import { commonSimplePatternRecognizerRegistry } from '../../content/rules/common-simple/pattern-recognizers';
 import {
   commonSimpleExtraScoringCalculatorRegistry,
@@ -12,24 +20,46 @@ import {
   COMMON_SIMPLE_RULE_REF,
   createCommonSimpleRuleRepository,
 } from '../../infrastructure/rule-repository/common-simple-rule-repository';
+import type { BuiltInRuleRepository } from '../../infrastructure/rule-repository/built-in-rule-repository';
 
-let calculatorStorePromise: Promise<CalculatorStore> | undefined;
+export type CalculatorRuntime = Readonly<{
+  store: CalculatorStore;
+  ruleRepository: BuiltInRuleRepository;
+  preferencesPort: InMemoryCalculatorPreferencesPort;
+  replaceGuard: ReturnType<typeof createCalculatorReplaceGuard>;
+}>;
 
-export function loadCalculatorStore(): Promise<CalculatorStore> {
-  calculatorStorePromise ??= createCommonSimpleRuleRepository()
-    .getInstalledRule(COMMON_SIMPLE_RULE_REF)
-    .then((rulePackage) =>
-      createCalculatorStore(rulePackage, undefined, (document, rule) =>
-        evaluateHand({
-          hand: document.hand,
-          context: document.context,
-          rule,
-          patternRecognizers: commonSimplePatternRecognizerRegistry,
-          scoringStrategies: commonSimpleScoringStrategyRegistry,
-          extraScoringCalculators: commonSimpleExtraScoringCalculatorRegistry,
-        }),
-      ),
+let calculatorRuntimePromise: Promise<CalculatorRuntime> | undefined;
+const preferencesPort = new InMemoryCalculatorPreferencesPort();
+const draftPort = new InMemoryCalculatorDraftPort();
+
+export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
+  calculatorRuntimePromise ??= (async () => {
+    const ruleRepository = createCommonSimpleRuleRepository();
+    const rulePackage = await ruleRepository.getInstalledRule(COMMON_SIMPLE_RULE_REF);
+    await recordRecentlyUsedRule(preferencesPort, rulePackage.manifest);
+    const store = createCalculatorStore(rulePackage, undefined, (document, rule) =>
+      evaluateHand({
+        hand: document.hand,
+        context: document.context,
+        rule,
+        patternRecognizers: commonSimplePatternRecognizerRegistry,
+        scoringStrategies: commonSimpleScoringStrategyRegistry,
+        extraScoringCalculators: commonSimpleExtraScoringCalculatorRegistry,
+      }),
     );
 
-  return calculatorStorePromise;
+    return Object.freeze({
+      store,
+      ruleRepository,
+      preferencesPort,
+      replaceGuard: createCalculatorReplaceGuard(store, draftPort),
+    });
+  })();
+
+  return calculatorRuntimePromise;
+}
+
+export async function loadCalculatorStore(): Promise<CalculatorStore> {
+  return (await loadCalculatorRuntime()).store;
 }

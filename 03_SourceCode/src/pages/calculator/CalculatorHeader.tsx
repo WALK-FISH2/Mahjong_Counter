@@ -10,9 +10,16 @@ const STATUS_LABELS: Readonly<Record<RuleStatus, string>> = Object.freeze({
 export type CalculatorHeaderProps = Readonly<{
   manifest: RuleManifest;
   document: CalculatorDocument;
+  onOpenRulePicker?: (() => void) | undefined;
+  onNewHand?: (() => void) | undefined;
 }>;
 
-export function CalculatorHeader({ manifest, document }: CalculatorHeaderProps) {
+export function CalculatorHeader({
+  manifest,
+  document,
+  onOpenRulePicker,
+  onNewHand,
+}: CalculatorHeaderProps) {
   const adjusted = document.temporaryRuleAdjustment !== null;
 
   return (
@@ -33,16 +40,29 @@ export function CalculatorHeader({ manifest, document }: CalculatorHeaderProps) 
         </div>
       </div>
 
-      <details className="rule-entry">
-        <summary>选择规则</summary>
-        <div className="rule-entry__content">
-          <p>当前可用于计算</p>
-          <strong>{manifest.displayName}</strong>
-          <span>
-            {STATUS_LABELS[manifest.status]} · v{manifest.ruleVersion}
-          </span>
-        </div>
-      </details>
+      <div className="calculator-header__actions">
+        {onNewHand !== undefined && (
+          <button className="secondary-action" type="button" onClick={onNewHand}>
+            新建牌面
+          </button>
+        )}
+        {onOpenRulePicker === undefined ? (
+          <details className="rule-entry">
+            <summary>选择规则</summary>
+            <div className="rule-entry__content">
+              <p>当前可用于计算</p>
+              <strong>{manifest.displayName}</strong>
+              <span>
+                {STATUS_LABELS[manifest.status]} · v{manifest.ruleVersion}
+              </span>
+            </div>
+          </details>
+        ) : (
+          <button className="secondary-action" type="button" onClick={onOpenRulePicker}>
+            选择规则
+          </button>
+        )}
+      </div>
     </header>
   );
 }

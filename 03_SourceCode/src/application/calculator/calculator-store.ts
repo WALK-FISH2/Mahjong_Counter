@@ -95,9 +95,38 @@ export type ContextRemoval = Readonly<{
   previousValue: KnownContextPrimitive;
 }>;
 
+export type CalculatorCompatibilityIssue =
+  | Readonly<{
+      reasonCode: 'RULE_MELD_TYPE_NOT_ALLOWED';
+      data: Readonly<{ meldId: string }>;
+    }>
+  | Readonly<{
+      reasonCode: 'RULE_MELD_LIMIT_EXCEEDED';
+      data: Readonly<{ meldId: string }>;
+    }>
+  | Readonly<{
+      reasonCode: 'RULE_OPEN_KONG_KIND_NOT_ALLOWED';
+      data: Readonly<{ meldId: string }>;
+    }>
+  | Readonly<{
+      reasonCode: 'RULE_FLOWERS_NOT_SUPPORTED';
+      data: Readonly<{ flowerIndex: number }>;
+    }>
+  | Readonly<{
+      reasonCode: 'RULE_CONTEXT_NOT_AVAILABLE';
+      data: Readonly<{ contextId: string }>;
+    }>;
+
+export type CalculatorCorrectionSource = HandValidationIssue | CalculatorCompatibilityIssue;
+
 export type CalculatorCorrectionIssue = Readonly<{
   issueId: string;
-  issue: HandValidationIssue;
+  issue: CalculatorCorrectionSource;
+}>;
+
+export type RuleSwitchUndoState = Readonly<{
+  document: CalculatorDocument;
+  rulePackage: RulePackageDefinition;
 }>;
 
 export type CalculatorStatus = Readonly<{
@@ -119,6 +148,7 @@ export type CalculatorEvaluator = (
 export type CalculatorState = Readonly<{
   document: CalculatorDocument;
   rulePackage: RulePackageDefinition;
+  ruleSwitchUndo: RuleSwitchUndoState | null;
   concealedSortMode: ConcealedSortMode;
   editingMeldId: string | null;
   undoHand: HandSnapshot | null;
@@ -152,6 +182,12 @@ export type CalculatorState = Readonly<{
   clearCorrectionIssue: (issueId: string) => boolean;
   startAnalysis: () => Promise<CalculatorInputResult>;
   cancelAnalysis: () => boolean;
+  replaceCalculator: (
+    rulePackage: RulePackageDefinition,
+    document: CalculatorDocument,
+    recordRuleSwitchUndo?: boolean,
+  ) => void;
+  undoRuleSwitch: () => boolean;
 }>;
 
 export type CalculatorStore = AppStore<CalculatorState>;
@@ -237,8 +273,55 @@ export function getCorrectionIssues(
   rulePackage: RulePackageDefinition,
 ): readonly CalculatorCorrectionIssue[] {
   const validation = validateHandSnapshot(document.hand, rulePackage.tileSet);
+  const compatibilityIssues: CalculatorCompatibilityIssue[] = [];
+
+  document.hand.melds.forEach((meld, meldIndex) => {
+    if (meldIndex >= rulePackage.handModel.maxDeclaredMelds) {
+      compatibilityIssues.push({
+        reasonCode: 'RULE_MELD_LIMIT_EXCEEDED',
+        data: { meldId: meld.id },
+      });
+    }
+    if (!rulePackage.handModel.allowedMeldTypes.includes(getRuleMeldType(meld))) {
+      compatibilityIssues.push({
+        reasonCode: 'RULE_MELD_TYPE_NOT_ALLOWED',
+        data: { meldId: meld.id },
+      });
+    }
+    if (
+      meld.type === 'kong' &&
+      meld.exposure === 'open' &&
+      meld.openKind !== undefined &&
+      !rulePackage.handModel.openKongPolicy.allowedKinds.includes(meld.openKind)
+    ) {
+      compatibilityIssues.push({
+        reasonCode: 'RULE_OPEN_KONG_KIND_NOT_ALLOWED',
+        data: { meldId: meld.id },
+      });
+    }
+  });
+
+  if (rulePackage.handModel.flowerPolicy !== 'separate') {
+    document.hand.flowers.forEach((_, flowerIndex) => {
+      compatibilityIssues.push({
+        reasonCode: 'RULE_FLOWERS_NOT_SUPPORTED',
+        data: { flowerIndex },
+      });
+    });
+  }
+
+  const contextIds = new Set(rulePackage.contexts.map(({ contextId }) => contextId));
+  Object.keys(document.context.values).forEach((contextId) => {
+    if (!contextIds.has(contextId)) {
+      compatibilityIssues.push({
+        reasonCode: 'RULE_CONTEXT_NOT_AVAILABLE',
+        data: { contextId },
+      });
+    }
+  });
+
   return Object.freeze(
-    validation.issues.map((issue, index) =>
+    [...validation.issues, ...compatibilityIssues].map((issue, index) =>
       Object.freeze({
         issueId: `${issue.reasonCode}-${index}`,
         issue,
@@ -599,6 +682,7 @@ export function createCalculatorStore(
     return {
       document: initialDocument,
       rulePackage,
+      ruleSwitchUndo: null,
       concealedSortMode: 'input-order',
       editingMeldId: null,
       undoHand: null,
@@ -1038,20 +1122,49 @@ export function createCalculatorStore(
       },
       clearCorrectionIssue: (issueId) => {
         const current = get();
-        const validation = validateHandSnapshot(current.document.hand, current.rulePackage.tileSet);
-        const separatorIndex = issueId.lastIndexOf('-');
-        const issueIndex = Number(issueId.slice(separatorIndex + 1));
-        const issue = validation.issues[issueIndex];
-        if (
-          issue === undefined ||
-          !Number.isSafeInteger(issueIndex) ||
-          `${issue.reasonCode}-${issueIndex}` !== issueId
-        ) {
-          return false;
+        const issues = getCorrectionIssues(current.document, current.rulePackage);
+        const issue = issues.find((candidate) => candidate.issueId === issueId)?.issue;
+        if (issue === undefined) return false;
+        let hand = current.document.hand;
+        let context = current.document.context;
+
+        switch (issue.reasonCode) {
+          case 'RULE_MELD_TYPE_NOT_ALLOWED':
+          case 'RULE_MELD_LIMIT_EXCEEDED':
+          case 'RULE_OPEN_KONG_KIND_NOT_ALLOWED':
+            hand = createHandSnapshot({
+              ...hand,
+              melds: hand.melds.filter(({ id }) => id !== issue.data.meldId),
+            });
+            break;
+          case 'RULE_FLOWERS_NOT_SUPPORTED':
+            hand = createHandSnapshot({
+              ...hand,
+              flowers: hand.flowers.filter((_, index) => index !== issue.data.flowerIndex),
+            });
+            break;
+          case 'RULE_CONTEXT_NOT_AVAILABLE': {
+            const values = { ...context.values };
+            delete values[issue.data.contextId];
+            context = createWinContext(context.mode, values);
+            break;
+          }
+          default:
+            hand = clearCorrectionFromHand(hand, issue);
         }
-        const hand = clearCorrectionFromHand(current.document.hand, issue);
-        if (hand === current.document.hand) return false;
-        commitHand(current, hand);
+
+        if (hand === current.document.hand && context === current.document.context) return false;
+        set({
+          document: reviseCalculatorDocument(current.document, {
+            hand,
+            context,
+            transientInput: NO_TRANSIENT_INPUT,
+          }),
+          editingMeldId: null,
+          undoHand: current.document.hand,
+          analysisStatus: 'idle',
+          analysisResult: null,
+        });
         return true;
       },
       startAnalysis: async () => {
@@ -1080,6 +1193,49 @@ export function createCalculatorStore(
         const current = get();
         if (current.analysisStatus !== 'analyzing') return false;
         set({ analysisStatus: 'idle', analysisResult: null });
+        return true;
+      },
+      replaceCalculator: (nextRulePackage, nextDocument, recordRuleSwitchUndo = false) => {
+        const current = get();
+        if (
+          nextDocument.ruleRef.ruleId !== nextRulePackage.manifest.ruleId ||
+          nextDocument.ruleRef.ruleVersion !== nextRulePackage.manifest.ruleVersion
+        ) {
+          throw new Error('Replacement CalculatorDocument RuleRef must match its RulePackage.');
+        }
+        set({
+          document: nextDocument,
+          rulePackage: nextRulePackage,
+          ruleSwitchUndo: recordRuleSwitchUndo
+            ? Object.freeze({
+                document: current.document,
+                rulePackage: current.rulePackage,
+              })
+            : null,
+          concealedSortMode: 'input-order',
+          editingMeldId: null,
+          undoHand: null,
+          analysisStatus: 'idle',
+          analysisResult: null,
+          lastContextRemovals: Object.freeze([]),
+          contextBeforeModeChange: null,
+        });
+      },
+      undoRuleSwitch: () => {
+        const current = get();
+        if (current.ruleSwitchUndo === null) return false;
+        set({
+          document: current.ruleSwitchUndo.document,
+          rulePackage: current.ruleSwitchUndo.rulePackage,
+          ruleSwitchUndo: null,
+          concealedSortMode: 'input-order',
+          editingMeldId: null,
+          undoHand: null,
+          analysisStatus: 'idle',
+          analysisResult: null,
+          lastContextRemovals: Object.freeze([]),
+          contextBeforeModeChange: null,
+        });
         return true;
       },
     };
