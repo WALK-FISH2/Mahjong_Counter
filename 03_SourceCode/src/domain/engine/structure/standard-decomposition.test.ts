@@ -23,6 +23,10 @@ const STANDARD_HAND_MODEL: HandModelDefinition = Object.freeze({
   readyStructuralTileCount: 13,
   requiredMeldCount: 4,
   allowedMeldTypes: Object.freeze(['chow', 'pung', 'open-kong', 'concealed-kong'] as const),
+  openKongPolicy: Object.freeze({
+    distinction: 'undifferentiated',
+    allowedKinds: Object.freeze(['direct', 'added'] as const),
+  }),
   maxDeclaredMelds: 4,
   flowerPolicy: 'separate',
 });
@@ -123,6 +127,10 @@ describe('standard structure DFS', () => {
       readyStructuralTileCount: 4,
       requiredMeldCount: 1,
       allowedMeldTypes: Object.freeze(['chow', 'pung'] as const),
+      openKongPolicy: Object.freeze({
+        distinction: 'undifferentiated',
+        allowedKinds: Object.freeze([]),
+      }),
       maxDeclaredMelds: 1,
       flowerPolicy: 'none',
     });
@@ -144,6 +152,7 @@ describe('standard structure DFS', () => {
       readyStructuralTileCount: 4,
       requiredMeldCount: 1,
       allowedMeldTypes: ['pung'],
+      openKongPolicy: { distinction: 'undifferentiated', allowedKinds: [] },
       maxDeclaredMelds: 1,
       flowerPolicy: 'none',
     };
@@ -242,7 +251,11 @@ describe('declared meld integration', () => {
     expect(
       enumerateStandardDecompositions({
         hand,
-        handModel: { ...STANDARD_HAND_MODEL, allowedMeldTypes: ['pung'] },
+        handModel: {
+          ...STANDARD_HAND_MODEL,
+          allowedMeldTypes: ['pung'],
+          openKongPolicy: { distinction: 'undifferentiated', allowedKinds: [] },
+        },
       }),
     ).toEqual([]);
   });

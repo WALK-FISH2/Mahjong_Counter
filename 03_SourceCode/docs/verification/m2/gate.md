@@ -79,3 +79,9 @@ M2 Gate = PASS
 ```
 
 可以进入下一推荐 Batch 07 / T301～T305，但本记录不自动启动 M3。
+
+## 8. 2026-08-12 明杠策略契约增量复核
+
+Batch 12 前置复核发现 `HandModelDefinition` 缺少明杠 `direct / added` 的规则数据契约。本次在不改变 Baseline、Spec、Rule Spec 或 `common-simple@1.0.0` 规则事实的前提下补充 `openKongPolicy`，同步严格 Schema、内置规则包、canonical content hash 与 Build-time Rule Validator 非法 fixture，并完成 M2～M4 定向回归及全套工程检查。
+
+实际命令、测试计数、哈希和范围结论见 [`open-kong-policy-contract.md`](./open-kong-policy-contract.md)。增量复核结果为 `PASS`；原 M2 Gate 结论保持 `PASS`。

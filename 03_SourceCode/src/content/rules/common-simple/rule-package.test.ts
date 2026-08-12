@@ -63,6 +63,10 @@ describe('common-simple@1.0.0 RulePackage', () => {
       targetStructuralTileCount: 14,
       readyStructuralTileCount: 13,
       requiredMeldCount: 4,
+      openKongPolicy: {
+        distinction: 'undifferentiated',
+        allowedKinds: ['direct', 'added'],
+      },
     });
     expect(rulePackage.legality.minimumFan).toBe(0);
     expect(rulePackage.scoring.cap).toEqual({ enabled: false, value: null });

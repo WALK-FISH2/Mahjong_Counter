@@ -491,6 +491,11 @@ type HandModelDefinition = {
     "chow" | "pung" | "open-kong" | "concealed-kong"
   >;
 
+  openKongPolicy: {
+    distinction: "undifferentiated" | "distinguished";
+    allowedKinds: ReadonlyArray<"direct" | "added">;
+  };
+
   maxDeclaredMelds: number;
   flowerPolicy: "none" | "separate";
 };
@@ -505,6 +510,15 @@ requiredMeldCount          = 4
 ```
 
 UI 可以自然显示“13/14”，但 Engine 不得到处硬编码这些值。
+
+`openKongPolicy` 是明杠录入的数据契约：
+
+- `allowedKinds` 是当前规则允许写入 `OpenKongMeld.openKind` 的白名单；允许 `open-kong` 时不得为空，不允许 `open-kong` 时必须为空；
+- `distinguished` 表示规则要求在无法由流程唯一确定时显式区分 `direct / added`；
+- `undifferentiated` 表示规则不要求用户额外手动选择。录入“直接开杠”或“由既有碰升级为杠”的流程仍可分别确定并保存实际 `openKind`，不得因此丢失 Domain 语义；
+- UI / Application 必须读取本字段，不得根据 `ruleId` 特判。规则包仍只提供纯数据，不携带可执行代码。
+
+`common-simple@1.0.0` 使用 `undifferentiated`，同时允许 `direct` 与 `added`；实际 `openKind` 由录入流程确定，不额外强迫用户选择。
 
 ---
 

@@ -189,7 +189,7 @@ const rulePackageData = {
       ],
     },
     releasedAt: '2026-08-10T00:00:00.000Z',
-    contentHash: 'f3325572e156585de7fcf5ce17041644886b6ca0cdc37ff40ad9931a45307cb8',
+    contentHash: '834409f59b957d0611808c3b21cddde8f8da952187f770cd7b5e85b5adc1569d',
   },
   tileSet: {
     enabledTiles: ENABLED_TILES,
@@ -207,6 +207,10 @@ const rulePackageData = {
     readyStructuralTileCount: 13,
     requiredMeldCount: 4,
     allowedMeldTypes: ['chow', 'pung', 'open-kong', 'concealed-kong'],
+    openKongPolicy: {
+      distinction: 'undifferentiated',
+      allowedKinds: ['direct', 'added'],
+    },
     maxDeclaredMelds: 4,
     flowerPolicy: 'separate',
   },

@@ -25,6 +25,12 @@ type MutablePatternFixture = {
 
 type MutableRulePackageFixture = {
   manifest: { ruleId: string; ruleVersion: string; contentHash: string };
+  handModel: {
+    openKongPolicy: {
+      distinction: string;
+      allowedKinds: string[];
+    };
+  };
   patterns: MutablePatternFixture[];
   temporaryAdjustments: Array<{
     target: { module: string; patternId?: string };
@@ -126,6 +132,17 @@ describe('Build-time Rule Validator', () => {
       validateFixture({ capabilityRegistry }),
       'RULE_PACKAGE_INVALID',
       'CAPABILITY_INVALID',
+    );
+  });
+
+  it('blocks an invalid open-kong policy before packaging', async () => {
+    const invalidOpenKongPolicy = cloneRulePackage();
+    invalidOpenKongPolicy.handModel.openKongPolicy.allowedKinds = [];
+
+    await expectBlocked(
+      validateFixture({ rulePackageInput: invalidOpenKongPolicy }),
+      'RULE_PACKAGE_INVALID',
+      'SCHEMA_INVALID',
     );
   });
 

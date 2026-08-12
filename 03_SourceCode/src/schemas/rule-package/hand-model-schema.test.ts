@@ -9,6 +9,10 @@ describe('HandModelDefinition schema', () => {
       readyStructuralTileCount: 13,
       requiredMeldCount: 4,
       allowedMeldTypes: ['chow', 'pung', 'open-kong', 'concealed-kong'],
+      openKongPolicy: {
+        distinction: 'undifferentiated',
+        allowedKinds: ['direct', 'added'],
+      },
       maxDeclaredMelds: 4,
       flowerPolicy: 'separate',
     });
@@ -18,6 +22,10 @@ describe('HandModelDefinition schema', () => {
       readyStructuralTileCount: 13,
       requiredMeldCount: 4,
       allowedMeldTypes: ['chow', 'pung', 'open-kong', 'concealed-kong'],
+      openKongPolicy: {
+        distinction: 'undifferentiated',
+        allowedKinds: ['direct', 'added'],
+      },
       maxDeclaredMelds: 4,
       flowerPolicy: 'separate',
     });
@@ -30,10 +38,25 @@ describe('HandModelDefinition schema', () => {
         readyStructuralTileCount: 15,
         requiredMeldCount: 5,
         allowedMeldTypes: ['pung'],
+        openKongPolicy: { distinction: 'undifferentiated', allowedKinds: [] },
         maxDeclaredMelds: 5,
         flowerPolicy: 'none',
       }).targetStructuralTileCount,
     ).toBe(16);
+  });
+
+  it('expresses explicit direct/added distinction without executable rule data', () => {
+    expect(
+      parseHandModelDefinition({
+        targetStructuralTileCount: 14,
+        readyStructuralTileCount: 13,
+        requiredMeldCount: 4,
+        allowedMeldTypes: ['open-kong'],
+        openKongPolicy: { distinction: 'distinguished', allowedKinds: ['added'] },
+        maxDeclaredMelds: 4,
+        flowerPolicy: 'none',
+      }).openKongPolicy,
+    ).toEqual({ distinction: 'distinguished', allowedKinds: ['added'] });
   });
 
   it('rejects impossible counts and duplicate meld declarations', () => {
@@ -43,6 +66,7 @@ describe('HandModelDefinition schema', () => {
         readyStructuralTileCount: 14,
         requiredMeldCount: 4,
         allowedMeldTypes: ['chow'],
+        openKongPolicy: { distinction: 'undifferentiated', allowedKinds: [] },
         maxDeclaredMelds: 4,
         flowerPolicy: 'separate',
       }).success,
@@ -53,8 +77,43 @@ describe('HandModelDefinition schema', () => {
         readyStructuralTileCount: 13,
         requiredMeldCount: 4,
         allowedMeldTypes: ['pung', 'pung'],
+        openKongPolicy: { distinction: 'undifferentiated', allowedKinds: [] },
         maxDeclaredMelds: 4,
         flowerPolicy: 'none',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects duplicate and meld-inconsistent open-kong policies', () => {
+    const base = {
+      targetStructuralTileCount: 14,
+      readyStructuralTileCount: 13,
+      requiredMeldCount: 4,
+      allowedMeldTypes: ['open-kong'],
+      maxDeclaredMelds: 4,
+      flowerPolicy: 'none',
+    } as const;
+
+    expect(
+      handModelDefinitionSchema.safeParse({
+        ...base,
+        openKongPolicy: {
+          distinction: 'undifferentiated',
+          allowedKinds: ['direct', 'direct'],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      handModelDefinitionSchema.safeParse({
+        ...base,
+        openKongPolicy: { distinction: 'undifferentiated', allowedKinds: [] },
+      }).success,
+    ).toBe(false);
+    expect(
+      handModelDefinitionSchema.safeParse({
+        ...base,
+        allowedMeldTypes: ['pung'],
+        openKongPolicy: { distinction: 'undifferentiated', allowedKinds: ['direct'] },
       }).success,
     ).toBe(false);
   });

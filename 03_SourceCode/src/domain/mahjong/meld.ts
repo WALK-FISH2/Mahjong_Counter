@@ -12,7 +12,9 @@ export type PungMeld = Readonly<{
   tile: TileCode;
 }>;
 
-export type OpenKongKind = 'direct' | 'added';
+export const OPEN_KONG_KINDS = ['direct', 'added'] as const;
+
+export type OpenKongKind = (typeof OPEN_KONG_KINDS)[number];
 
 export type OpenKongMeld = Readonly<{
   id: string;

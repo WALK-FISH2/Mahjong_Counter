@@ -62,6 +62,7 @@ const validPackage = {
     readyStructuralTileCount: 4,
     requiredMeldCount: 1,
     allowedMeldTypes: ['chow'],
+    openKongPolicy: { distinction: 'undifferentiated', allowedKinds: [] },
     maxDeclaredMelds: 1,
     flowerPolicy: 'none',
   },
