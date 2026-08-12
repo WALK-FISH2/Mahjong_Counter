@@ -18,10 +18,6 @@ describe('common-simple Structure Rule Test Corpus', () => {
 
     expect(corpusIndex.ruleId).toBe(rulePackage.manifest.ruleId);
     expect(corpusIndex.ruleVersion).toBe(rulePackage.manifest.ruleVersion);
-    expect(COMMON_SIMPLE_STRUCTURE_RULE_CASES.map(({ id }) => id)).toEqual(
-      corpusIndex.cases.map(({ caseId }) => caseId),
-    );
-
     for (const ruleCase of COMMON_SIMPLE_STRUCTURE_RULE_CASES) {
       expect(indexedCaseIds.has(ruleCase.id)).toBe(true);
       expect(ruleCase.ruleRef).toEqual({

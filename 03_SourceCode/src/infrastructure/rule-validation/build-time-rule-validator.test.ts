@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { commonSimpleRuleCorpusIndexInput } from '../../content/rules/common-simple/rule-corpus-index';
 import { commonSimpleRulePackageInput } from '../../content/rules/common-simple/rule-package';
+import { commonSimplePatternRecognizerRegistry } from '../../content/rules/common-simple/pattern-recognizers';
 import { COMMON_SIMPLE_VALIDATION_CONTRACT } from '../../content/rules/common-simple/validation-contract';
 import type { CapabilityRegistry } from '../../domain/rules/capability-registry';
 import { calculateRulePackageContentHash } from '../content-integrity/rule-content-hash';
@@ -55,6 +56,7 @@ async function validateFixture(
     rulePackageInput: overrides.rulePackageInput ?? commonSimpleRulePackageInput,
     ruleCorpusInput: overrides.ruleCorpusInput ?? commonSimpleRuleCorpusIndexInput,
     capabilityRegistry: overrides.capabilityRegistry ?? commonSimpleCapabilityRegistry,
+    patternRecognizerRegistry: commonSimplePatternRecognizerRegistry,
     ruleSpecMarkdown: overrides.ruleSpec ?? ruleSpecMarkdown,
     contract: COMMON_SIMPLE_VALIDATION_CONTRACT,
   });

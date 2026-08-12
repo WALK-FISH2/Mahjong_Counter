@@ -1,5 +1,6 @@
 import type { CapabilityRegistry } from '../../domain/rules/capability-registry';
 import type { RulePackageDefinition } from '../../domain/rules/rule-package';
+import type { PatternRecognizerRegistry } from '../../domain/engine/pattern/pattern-recognizer';
 import { ruleCorpusIndexSchema } from '../../schemas/rule-package/rule-corpus-index-schema';
 import {
   RulePackageValidationError,
@@ -62,6 +63,7 @@ export type BuildTimeRuleValidationInput = Readonly<{
   rulePackageInput: unknown;
   ruleCorpusInput: unknown;
   capabilityRegistry: CapabilityRegistry;
+  patternRecognizerRegistry?: PatternRecognizerRegistry;
   ruleSpecMarkdown: string;
   contract: BuildTimeRuleValidationContract;
 }>;
@@ -262,7 +264,11 @@ export async function validateBuiltInRulePackage(
 
   let rulePackage: RulePackageDefinition;
   try {
-    rulePackage = await validateRulePackageInput(input.rulePackageInput, input.capabilityRegistry);
+    rulePackage = await validateRulePackageInput(
+      input.rulePackageInput,
+      input.capabilityRegistry,
+      input.patternRecognizerRegistry,
+    );
   } catch (error) {
     const message =
       error instanceof RulePackageValidationError

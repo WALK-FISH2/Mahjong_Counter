@@ -3,6 +3,7 @@ import {
   type CapabilityRegistry,
 } from '../../domain/rules/capability-registry';
 import type { RulePackageDefinition } from '../../domain/rules/rule-package';
+import type { PatternRecognizerRegistry } from '../../domain/engine/pattern/pattern-recognizer';
 import { patternCatalogWithSourcesSchema } from '../../schemas/rule-package/pattern-catalog-schema';
 import { patternRelationsWithPatternsSchema } from '../../schemas/rule-package/pattern-relation-schema';
 import { rulePackageDefinitionSchema } from '../../schemas/rule-package/rule-package-definition-schema';
@@ -118,6 +119,7 @@ function validateEncyclopediaReferences(
 export async function validateRulePackageInput(
   input: unknown,
   capabilities: CapabilityRegistry,
+  patternRecognizers?: PatternRecognizerRegistry,
 ): Promise<RulePackageDefinition> {
   const parsed = rulePackageDefinitionSchema.safeParse(input);
   if (!parsed.success) {
@@ -150,6 +152,7 @@ export async function validateRulePackageInput(
     rulePackage.patterns,
     rulePackage.structures,
     rulePackage.scoring,
+    patternRecognizers?.recognizers.map(({ recognizerKey }) => recognizerKey),
   );
   if (!readiness.canCalculate) {
     issues.push({
