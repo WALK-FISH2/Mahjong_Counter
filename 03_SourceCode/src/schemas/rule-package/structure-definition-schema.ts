@@ -1,17 +1,67 @@
 import { z } from 'zod';
 
-import { STRUCTURE_KEYS, type StructureDefinition } from '../../domain/rules/structure-definition';
+import {
+  SEVEN_PAIRS_QUAD_HANDLINGS,
+  STRUCTURE_KEYS,
+  type StructureDefinition,
+} from '../../domain/rules/structure-definition';
+import { TILE_CODES } from '../../domain/mahjong/tile';
 
 const MAX_STRUCTURE_DEFINITIONS = STRUCTURE_KEYS.length;
 const capabilityKeySchema = z.string().trim().min(1).max(128);
 const structureKeySchema = z.enum(STRUCTURE_KEYS);
 
-const supportedStructureDefinitionSchema = z.strictObject({
-  structureKey: structureKeySchema,
+const supportedStructureDefinitionBase = {
   capabilityKey: capabilityKeySchema,
   enabled: z.boolean(),
   supportStatus: z.literal('SUPPORTED'),
+} as const;
+
+const standardStructureDefinitionSchema = z.strictObject({
+  ...supportedStructureDefinitionBase,
+  structureKey: z.literal('standard-meld-pair'),
 });
+
+const sevenPairsStructureDefinitionSchema = z.strictObject({
+  ...supportedStructureDefinitionBase,
+  structureKey: z.literal('seven-pairs'),
+  parameters: z.strictObject({
+    requiredPairCount: z.number().int().positive().safe(),
+    quadHandling: z.enum(SEVEN_PAIRS_QUAD_HANDLINGS),
+  }),
+});
+
+const thirteenOrphansStructureDefinitionSchema = z.strictObject({
+  ...supportedStructureDefinitionBase,
+  structureKey: z.literal('thirteen-orphans'),
+  parameters: z.strictObject({
+    requiredTiles: z
+      .array(z.enum(TILE_CODES))
+      .min(1)
+      .max(TILE_CODES.length)
+      .superRefine((tiles, context) => {
+        const seen = new Set<string>();
+
+        tiles.forEach((tile, index) => {
+          if (seen.has(tile)) {
+            context.addIssue({
+              code: 'custom',
+              message: 'thirteen-orphans requiredTiles must be unique',
+              path: [index],
+            });
+          }
+          seen.add(tile);
+        });
+      }),
+    duplicateTileCount: z.number().int().min(2).safe(),
+  }),
+});
+
+const supportedStructureDefinitionSchema = z.discriminatedUnion('structureKey', [
+  standardStructureDefinitionSchema,
+  sevenPairsStructureDefinitionSchema,
+  thirteenOrphansStructureDefinitionSchema,
+]);
 
 const unsupportedStructureDefinitionSchema = z.strictObject({
   structureKey: structureKeySchema,
