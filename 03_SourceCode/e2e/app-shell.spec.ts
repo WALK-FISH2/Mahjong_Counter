@@ -140,3 +140,40 @@ test('supports the Batch 12 temporary meld and winning-tile flow', async ({ page
   await expect(page.getByRole('button', { name: '撤回胡牌张东风' })).toBeVisible();
   expect(consoleIssues).toEqual([]);
 });
+
+test('supports the Batch 13 dynamic context and floating analysis status', async ({ page }) => {
+  const consoleIssues = collectConsoleIssues(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  const actionBar = page.locator('.analyze-action-bar');
+  const contextPanel = page.getByRole('heading', { name: '和牌条件' }).locator('..');
+
+  await expect(contextPanel.getByRole('radio', { name: '点炮' })).toBeChecked();
+  await expect(page.getByRole('alert')).toContainText('还需补全：门风、圈风');
+  await expect(actionBar).toContainText('还需补全 2 个和牌条件');
+  await expect(actionBar.getByRole('button', { name: '开始分析' })).toBeDisabled();
+
+  await contextPanel.getByLabel('门风').selectOption({ label: '东风' });
+  await contextPanel.getByLabel('圈风').selectOption({ label: '南风' });
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(actionBar).toContainText('结构张数 0 / 14');
+
+  await contextPanel.getByRole('radio', { name: '自摸' }).click();
+  await contextPanel.getByText('更多条件').click();
+  await expect(contextPanel.getByRole('checkbox', { name: '杠上开花' })).toBeVisible();
+  await expect(contextPanel.getByRole('checkbox', { name: '抢杠和' })).toHaveCount(0);
+
+  expect(await actionBar.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+  const actionBox = await actionBar.boundingBox();
+  const navigationBox = await navigation.boundingBox();
+  expect(actionBox).not.toBeNull();
+  expect(navigationBox).not.toBeNull();
+  expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(navigationBox!.y);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  expect(await actionBar.evaluate((element) => getComputedStyle(element).position)).toBe('sticky');
+  expect(consoleIssues).toEqual([]);
+});

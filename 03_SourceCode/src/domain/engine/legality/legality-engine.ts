@@ -22,7 +22,10 @@ function predicateMatches(context: WinContext, predicate: ContextValuePredicate)
   return predicate.operator === 'equals' ? actual === predicate.value : actual !== predicate.value;
 }
 
-function appliesToContext(definition: ContextDefinition, context: WinContext): boolean {
+export function isContextDefinitionApplicable(
+  definition: ContextDefinition,
+  context: WinContext,
+): boolean {
   if (!definition.applicableWinModes.includes(context.mode)) {
     return false;
   }
@@ -40,7 +43,7 @@ export function getMissingRequiredContextIds(
   return Object.freeze(
     definitions
       .filter(({ required }) => required)
-      .filter((definition) => appliesToContext(definition, context))
+      .filter((definition) => isContextDefinitionApplicable(definition, context))
       .filter(({ contextId }) => {
         const value = context.values[contextId];
         return value === undefined || !isKnownContextValue(value);

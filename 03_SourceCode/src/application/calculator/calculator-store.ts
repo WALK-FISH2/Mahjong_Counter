@@ -12,8 +12,11 @@ import {
   createOpenKongMeld,
   createPungMeld,
   createWinContext,
+  countHandStructure,
   getTileCount,
   getTileMetadata,
+  isKnownContextValue,
+  knownContextValue,
   removeTransientChowTile,
   reviseCalculatorDocument,
   startChowInput,
@@ -21,16 +24,28 @@ import {
   startFlowerInput,
   startOpenKongInput,
   startPungInput,
+  setContextValue,
   validateHandSnapshot,
   type CalculatorDocument,
   type HandSnapshot,
+  type HandTileLocation,
+  type HandValidationIssue,
   type Meld,
   type OpenKongKind,
   type TileCode,
   type TileCountByCode,
   type TransientInputSession,
+  type KnownContextPrimitive,
+  type WinContext,
+  type WinMode,
 } from '../../domain/mahjong';
+import {
+  getMissingRequiredContextIds,
+  isContextDefinitionApplicable,
+} from '../../domain/engine/legality';
 import { enumerateWinningDecompositions } from '../../domain/engine/structure';
+import type { SystemEvaluation } from '../../domain/engine/evaluation';
+import type { ContextDefinition } from '../../domain/rules/context-definition';
 import type { RuleMeldType } from '../../domain/rules/hand-model';
 import type { RulePackageDefinition } from '../../domain/rules/rule-package';
 
@@ -49,7 +64,12 @@ export type CalculatorInputRejection =
   | 'FLOWERS_NOT_SUPPORTED'
   | 'TRANSIENT_INPUT_NOT_ACTIVE'
   | 'MELD_NOT_FOUND'
-  | 'ADDED_KONG_TILE_MISMATCH';
+  | 'ADDED_KONG_TILE_MISMATCH'
+  | 'CONTEXT_FIELD_NOT_AVAILABLE'
+  | 'CONTEXT_VALUE_INVALID'
+  | 'ANALYSIS_NOT_READY'
+  | 'ANALYSIS_UNAVAILABLE'
+  | 'ANALYSIS_FAILED';
 
 export type CalculatorInputResult =
   | Readonly<{ accepted: true }>
@@ -68,12 +88,45 @@ export type WinningTileConfirmation = Readonly<{
   recommendedOriginalIndex: number;
 }>;
 
+export type CalculatorAnalysisPhase = 'insufficient' | 'ready' | 'analyzing' | 'result';
+
+export type ContextRemoval = Readonly<{
+  contextId: string;
+  previousValue: KnownContextPrimitive;
+}>;
+
+export type CalculatorCorrectionIssue = Readonly<{
+  issueId: string;
+  issue: HandValidationIssue;
+}>;
+
+export type CalculatorStatus = Readonly<{
+  structuralTileCount: number;
+  physicalTileCount: number;
+  targetStructuralTileCount: number;
+  missingContextIds: readonly string[];
+  correctionIssues: readonly CalculatorCorrectionIssue[];
+  phase: CalculatorAnalysisPhase;
+  canAnalyze: boolean;
+  formalActionsAllowed: boolean;
+}>;
+
+export type CalculatorEvaluator = (
+  document: CalculatorDocument,
+  rulePackage: RulePackageDefinition,
+) => Promise<SystemEvaluation> | SystemEvaluation;
+
 export type CalculatorState = Readonly<{
   document: CalculatorDocument;
   rulePackage: RulePackageDefinition;
   concealedSortMode: ConcealedSortMode;
   editingMeldId: string | null;
   undoHand: HandSnapshot | null;
+  analysisStatus: 'idle' | 'analyzing' | 'completed';
+  analysisResult: SystemEvaluation | null;
+  analysisAvailable: boolean;
+  lastContextRemovals: readonly ContextRemoval[];
+  contextBeforeModeChange: WinContext | null;
   addConcealedTile: (tile: TileCode) => CalculatorInputResult;
   removeConcealedTile: (originalIndex: number) => boolean;
   arrangeConcealedTiles: () => void;
@@ -92,6 +145,13 @@ export type CalculatorState = Readonly<{
   removeMeld: (meldId: string) => boolean;
   removeFlower: (flowerIndex: number) => boolean;
   undoLastHandChange: () => boolean;
+  setContextMode: (mode: WinMode) => readonly ContextRemoval[];
+  updateContextValue: (contextId: string, value: KnownContextPrimitive) => CalculatorInputResult;
+  clearContextValue: (contextId: string) => boolean;
+  undoContextRemovals: () => boolean;
+  clearCorrectionIssue: (issueId: string) => boolean;
+  startAnalysis: () => Promise<CalculatorInputResult>;
+  cancelAnalysis: () => boolean;
 }>;
 
 export type CalculatorStore = AppStore<CalculatorState>;
@@ -122,6 +182,177 @@ function getRuleMeldType(meld: Meld): RuleMeldType {
     return 'pung';
   }
   return meld.exposure === 'open' ? 'open-kong' : 'concealed-kong';
+}
+
+function getContextDefinition(
+  rulePackage: RulePackageDefinition,
+  contextId: string,
+): ContextDefinition | undefined {
+  return rulePackage.contexts.find((definition) => definition.contextId === contextId);
+}
+
+function contextValueAllowed(definition: ContextDefinition, value: KnownContextPrimitive): boolean {
+  if (definition.valueType === 'boolean') return typeof value === 'boolean';
+  if (definition.valueType === 'integer') return Number.isSafeInteger(value);
+  if (definition.valueType === 'text') return typeof value === 'string';
+  return definition.options?.some((option) => option.value === value) ?? false;
+}
+
+function collectContextRemovalsForMode(
+  document: CalculatorDocument,
+  rulePackage: RulePackageDefinition,
+  mode: WinMode,
+): readonly ContextRemoval[] {
+  return Object.freeze(
+    rulePackage.contexts.flatMap((definition) => {
+      const currentValue = document.context.values[definition.contextId];
+      if (
+        currentValue === undefined ||
+        !isKnownContextValue(currentValue) ||
+        isContextDefinitionApplicable(definition, createWinContext(mode, document.context.values))
+      ) {
+        return [];
+      }
+      return [
+        Object.freeze({ contextId: definition.contextId, previousValue: currentValue.value }),
+      ];
+    }),
+  );
+}
+
+function removeContextValues(
+  document: CalculatorDocument,
+  removals: readonly ContextRemoval[],
+  mode: WinMode,
+) {
+  const removalIds = new Set(removals.map(({ contextId }) => contextId));
+  const values = Object.fromEntries(
+    Object.entries(document.context.values).filter(([contextId]) => !removalIds.has(contextId)),
+  );
+  return createWinContext(mode, values);
+}
+
+export function getCorrectionIssues(
+  document: CalculatorDocument,
+  rulePackage: RulePackageDefinition,
+): readonly CalculatorCorrectionIssue[] {
+  const validation = validateHandSnapshot(document.hand, rulePackage.tileSet);
+  return Object.freeze(
+    validation.issues.map((issue, index) =>
+      Object.freeze({
+        issueId: `${issue.reasonCode}-${index}`,
+        issue,
+      }),
+    ),
+  );
+}
+
+function removeTileAtLocation(hand: HandSnapshot, location: HandTileLocation): HandSnapshot {
+  switch (location.area) {
+    case 'concealed':
+      return createHandSnapshot({
+        ...hand,
+        concealed: hand.concealed.filter((_, index) => index !== location.index),
+      });
+    case 'winning-tile':
+      return createHandSnapshot({ ...hand, winningTile: null });
+    case 'flowers':
+      return createHandSnapshot({
+        ...hand,
+        flowers: hand.flowers.filter((_, index) => index !== location.index),
+      });
+    case 'meld':
+      return createHandSnapshot({
+        ...hand,
+        melds: hand.melds.filter((_, index) => index !== location.meldIndex),
+      });
+  }
+}
+
+function meldContainsTile(meld: Meld, tile: TileCode): boolean {
+  if (meld.type === 'chow') return meld.tiles.includes(tile);
+  return meld.tile === tile;
+}
+
+function clearCorrectionFromHand(hand: HandSnapshot, issue: HandValidationIssue): HandSnapshot {
+  if ('location' in issue.data) {
+    return removeTileAtLocation(hand, issue.data.location);
+  }
+
+  switch (issue.reasonCode) {
+    case 'TILE_COPY_LIMIT_EXCEEDED': {
+      const concealedIndex = hand.concealed.lastIndexOf(issue.data.tile);
+      if (concealedIndex >= 0) {
+        return removeTileAtLocation(hand, { area: 'concealed', index: concealedIndex });
+      }
+      if (hand.winningTile === issue.data.tile) {
+        return removeTileAtLocation(hand, { area: 'winning-tile' });
+      }
+      const flowerIndex = hand.flowers.lastIndexOf(issue.data.tile);
+      if (flowerIndex >= 0) {
+        return removeTileAtLocation(hand, { area: 'flowers', index: flowerIndex });
+      }
+      const meldIndex = hand.melds.findLastIndex((meld) => meldContainsTile(meld, issue.data.tile));
+      return meldIndex < 0
+        ? hand
+        : createHandSnapshot({
+            ...hand,
+            melds: hand.melds.filter((_, index) => index !== meldIndex),
+          });
+    }
+    case 'INVALID_CHOW':
+      return createHandSnapshot({
+        ...hand,
+        melds: hand.melds.filter(({ id }) => id !== issue.data.meldId),
+      });
+    case 'EMPTY_MELD_ID':
+    case 'DUPLICATE_MELD_ID':
+      return createHandSnapshot({
+        ...hand,
+        melds: hand.melds.filter((_, index) => index !== issue.data.meldIndex),
+      });
+  }
+
+  return hand;
+}
+
+export function getCalculatorStatus(
+  state: Pick<
+    CalculatorState,
+    'document' | 'rulePackage' | 'analysisStatus' | 'analysisResult' | 'analysisAvailable'
+  >,
+): CalculatorStatus {
+  const counts = countHandStructure(state.document.hand);
+  const correctionIssues = getCorrectionIssues(state.document, state.rulePackage);
+  const missingContextIds = getMissingRequiredContextIds(
+    state.document.context,
+    state.rulePackage.contexts,
+  );
+  const target = state.rulePackage.handModel.targetStructuralTileCount;
+  const hasCompleteStructure = counts.structuralTileCount === target;
+  const formalActionsAllowed = correctionIssues.length === 0 && missingContextIds.length === 0;
+  const phase: CalculatorAnalysisPhase =
+    state.analysisStatus === 'analyzing'
+      ? 'analyzing'
+      : state.analysisStatus === 'completed' && state.analysisResult !== null
+        ? 'result'
+        : hasCompleteStructure
+          ? 'ready'
+          : 'insufficient';
+  return Object.freeze({
+    structuralTileCount: counts.structuralTileCount,
+    physicalTileCount: counts.physicalTileCount,
+    targetStructuralTileCount: target,
+    missingContextIds,
+    correctionIssues,
+    phase,
+    canAnalyze:
+      phase === 'ready' &&
+      formalActionsAllowed &&
+      state.analysisAvailable &&
+      state.document.hand.winningTile !== null,
+    formalActionsAllowed,
+  });
 }
 
 function getNextMeldId(document: CalculatorDocument): string {
@@ -315,6 +546,7 @@ export function getDisplayedConcealedTiles(
 export function createCalculatorStore(
   rulePackage: RulePackageDefinition,
   initialDocument: CalculatorDocument = createInitialCalculatorDocument(rulePackage),
+  evaluator?: CalculatorEvaluator,
 ): CalculatorStore {
   if (
     initialDocument.ruleRef.ruleId !== rulePackage.manifest.ruleId ||
@@ -332,6 +564,8 @@ export function createCalculatorStore(
         }),
         editingMeldId: null,
         undoHand: current.document.hand,
+        analysisStatus: 'idle',
+        analysisResult: null,
       });
     };
 
@@ -368,6 +602,11 @@ export function createCalculatorStore(
       concealedSortMode: 'input-order',
       editingMeldId: null,
       undoHand: null,
+      analysisStatus: 'idle',
+      analysisResult: null,
+      analysisAvailable: evaluator !== undefined,
+      lastContextRemovals: Object.freeze([]),
+      contextBeforeModeChange: null,
       addConcealedTile: (tile) => {
         const current = get();
         const tileSet = current.rulePackage.tileSet;
@@ -713,7 +952,134 @@ export function createCalculatorStore(
           }),
           editingMeldId: null,
           undoHand: null,
+          analysisStatus: 'idle',
+          analysisResult: null,
         });
+        return true;
+      },
+      setContextMode: (mode) => {
+        const current = get();
+        if (current.document.context.mode === mode) return Object.freeze([]);
+        const removals = collectContextRemovalsForMode(current.document, current.rulePackage, mode);
+        set({
+          document: reviseCalculatorDocument(current.document, {
+            context: removeContextValues(current.document, removals, mode),
+          }),
+          lastContextRemovals: removals,
+          contextBeforeModeChange: removals.length > 0 ? current.document.context : null,
+          analysisStatus: 'idle',
+          analysisResult: null,
+        });
+        return removals;
+      },
+      updateContextValue: (contextId, value) => {
+        const current = get();
+        const definition = getContextDefinition(current.rulePackage, contextId);
+        if (
+          definition === undefined ||
+          !isContextDefinitionApplicable(definition, current.document.context)
+        ) {
+          return rejectedInput('CONTEXT_FIELD_NOT_AVAILABLE');
+        }
+        if (!contextValueAllowed(definition, value)) {
+          return rejectedInput('CONTEXT_VALUE_INVALID');
+        }
+        const values = { ...current.document.context.values };
+        if (definition.valueType !== 'boolean' || value === true) {
+          for (const mutuallyExclusiveId of definition.mutuallyExclusiveWith ?? []) {
+            delete values[mutuallyExclusiveId];
+          }
+        }
+        const context = setContextValue(
+          createWinContext(current.document.context.mode, values),
+          contextId,
+          knownContextValue(value),
+        );
+        set({
+          document: reviseCalculatorDocument(current.document, { context }),
+          lastContextRemovals: Object.freeze([]),
+          contextBeforeModeChange: null,
+          analysisStatus: 'idle',
+          analysisResult: null,
+        });
+        return ACCEPTED_INPUT;
+      },
+      clearContextValue: (contextId) => {
+        const current = get();
+        if (current.document.context.values[contextId] === undefined) return false;
+        const values = { ...current.document.context.values };
+        delete values[contextId];
+        set({
+          document: reviseCalculatorDocument(current.document, {
+            context: createWinContext(current.document.context.mode, values),
+          }),
+          lastContextRemovals: Object.freeze([]),
+          contextBeforeModeChange: null,
+          analysisStatus: 'idle',
+          analysisResult: null,
+        });
+        return true;
+      },
+      undoContextRemovals: () => {
+        const current = get();
+        if (current.lastContextRemovals.length === 0 || current.contextBeforeModeChange === null) {
+          return false;
+        }
+        set({
+          document: reviseCalculatorDocument(current.document, {
+            context: current.contextBeforeModeChange,
+          }),
+          lastContextRemovals: Object.freeze([]),
+          contextBeforeModeChange: null,
+          analysisStatus: 'idle',
+          analysisResult: null,
+        });
+        return true;
+      },
+      clearCorrectionIssue: (issueId) => {
+        const current = get();
+        const validation = validateHandSnapshot(current.document.hand, current.rulePackage.tileSet);
+        const separatorIndex = issueId.lastIndexOf('-');
+        const issueIndex = Number(issueId.slice(separatorIndex + 1));
+        const issue = validation.issues[issueIndex];
+        if (
+          issue === undefined ||
+          !Number.isSafeInteger(issueIndex) ||
+          `${issue.reasonCode}-${issueIndex}` !== issueId
+        ) {
+          return false;
+        }
+        const hand = clearCorrectionFromHand(current.document.hand, issue);
+        if (hand === current.document.hand) return false;
+        commitHand(current, hand);
+        return true;
+      },
+      startAnalysis: async () => {
+        const current = get();
+        const status = getCalculatorStatus(current);
+        if (evaluator === undefined) return rejectedInput('ANALYSIS_UNAVAILABLE');
+        if (!status.canAnalyze) return rejectedInput('ANALYSIS_NOT_READY');
+        const revision = current.document.revision;
+        set({ analysisStatus: 'analyzing', analysisResult: null });
+        let result: SystemEvaluation;
+        try {
+          result = await evaluator(current.document, current.rulePackage);
+        } catch {
+          if (get().document.revision === revision && get().analysisStatus === 'analyzing') {
+            set({ analysisStatus: 'idle', analysisResult: null });
+          }
+          return rejectedInput('ANALYSIS_FAILED');
+        }
+        if (get().document.revision !== revision || get().analysisStatus !== 'analyzing') {
+          return ACCEPTED_INPUT;
+        }
+        set({ analysisStatus: 'completed', analysisResult: result });
+        return ACCEPTED_INPUT;
+      },
+      cancelAnalysis: () => {
+        const current = get();
+        if (current.analysisStatus !== 'analyzing') return false;
+        set({ analysisStatus: 'idle', analysisResult: null });
         return true;
       },
     };

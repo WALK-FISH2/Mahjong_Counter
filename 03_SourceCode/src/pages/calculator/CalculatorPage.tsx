@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from 'zustand';
 
 import {
   getAddedKongUpgradeTile,
+  getCalculatorStatus,
   getDisplayedConcealedTiles,
   getInputLimitTileCounts,
   getWinningTileConfirmation,
@@ -13,12 +14,15 @@ import {
 import type { OpenKongKind } from '../../domain/mahjong/meld';
 import type { TileCode } from '../../domain/mahjong/tile';
 import { countHandTilesByCode } from '../../domain/mahjong/validation';
+import { AnalyzeActionBar } from '../../features/calculator-status/AnalyzeActionBar';
+import { CorrectionStatusPanel } from '../../features/calculator-status/CorrectionStatusPanel';
 import { EnteredHandBoard } from '../../features/tile-input/EnteredHandBoard';
 import { IncompleteChowGuard } from '../../features/tile-input/IncompleteChowGuard';
 import { MeldInputControls } from '../../features/tile-input/MeldInputControls';
 import { TilePalette } from '../../features/tile-input/TilePalette';
 import { TransientInputPanel } from '../../features/tile-input/TransientInputPanel';
 import { WinningTileConfirmation } from '../../features/tile-input/WinningTileConfirmation';
+import { WinContextPanel } from '../../features/win-context/WinContextPanel';
 import { CalculatorHeader } from './CalculatorHeader';
 
 export type CalculatorPageProps = Readonly<{
@@ -73,10 +77,21 @@ function rejectionMessage(reasonCode: CalculatorInputRejection): string {
       return '目标牌组已不存在，请重新操作。';
     case 'ADDED_KONG_TILE_MISMATCH':
       return '加杠必须选择原碰牌的同一种牌。';
+    case 'CONTEXT_FIELD_NOT_AVAILABLE':
+      return '该和牌条件当前不可用。';
+    case 'CONTEXT_VALUE_INVALID':
+      return '该和牌条件值不符合当前规则定义。';
+    case 'ANALYSIS_NOT_READY':
+      return '请先完成牌面并补齐必填和牌条件。';
+    case 'ANALYSIS_UNAVAILABLE':
+      return '当前分析引擎尚未就绪。';
+    case 'ANALYSIS_FAILED':
+      return '本次分析失败，请检查牌面后重试。';
   }
 }
 
 function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
+  const analysisSectionRef = useRef<HTMLElement>(null);
   const [inputNotice, setInputNotice] = useState<string | null>(null);
   const [selectingWinningTile, setSelectingWinningTile] = useState(false);
   const [pendingChowAction, setPendingChowAction] = useState<PendingChowAction | null>(null);
@@ -88,6 +103,10 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
   const concealedSortMode = useStore(store, (state) => state.concealedSortMode);
   const editingMeldId = useStore(store, (state) => state.editingMeldId);
   const undoHand = useStore(store, (state) => state.undoHand);
+  const analysisStatus = useStore(store, (state) => state.analysisStatus);
+  const analysisResult = useStore(store, (state) => state.analysisResult);
+  const analysisAvailable = useStore(store, (state) => state.analysisAvailable);
+  const lastContextRemovals = useStore(store, (state) => state.lastContextRemovals);
   const addConcealedTile = useStore(store, (state) => state.addConcealedTile);
   const removeConcealedTile = useStore(store, (state) => state.removeConcealedTile);
   const arrangeConcealedTiles = useStore(store, (state) => state.arrangeConcealedTiles);
@@ -106,6 +125,13 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
   const removeMeld = useStore(store, (state) => state.removeMeld);
   const removeFlower = useStore(store, (state) => state.removeFlower);
   const undoLastHandChange = useStore(store, (state) => state.undoLastHandChange);
+  const setContextMode = useStore(store, (state) => state.setContextMode);
+  const updateContextValue = useStore(store, (state) => state.updateContextValue);
+  const clearContextValue = useStore(store, (state) => state.clearContextValue);
+  const undoContextRemovals = useStore(store, (state) => state.undoContextRemovals);
+  const clearCorrectionIssue = useStore(store, (state) => state.clearCorrectionIssue);
+  const startAnalysis = useStore(store, (state) => state.startAnalysis);
+  const cancelAnalysis = useStore(store, (state) => state.cancelAnalysis);
   const displayedTiles = getDisplayedConcealedTiles(document, concealedSortMode);
   const formalTileCounts = countHandTilesByCode(document.hand);
   const inputTileCounts = getInputLimitTileCounts(document, editingMeldId);
@@ -115,6 +141,13 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
     winningTileConfirmation !== null && dismissedConfirmationRevision !== document.revision;
   const hasIncompleteChow =
     document.transientInput.kind === 'chow' && document.transientInput.selected.length > 0;
+  const calculatorStatus = getCalculatorStatus({
+    document,
+    rulePackage,
+    analysisStatus,
+    analysisResult,
+    analysisAvailable,
+  });
 
   const applyResult = (
     result: { accepted: true } | { accepted: false; reasonCode: CalculatorInputRejection },
@@ -319,24 +352,62 @@ function LoadedCalculatorPage({ store }: Readonly<{ store: CalculatorStore }>) {
         </div>
 
         <div className="calculator-layout__analysis">
-          <section className="calculator-panel context-summary" aria-labelledby="context-title">
-            <p className="section-kicker">当前计算条件</p>
-            <h2 id="context-title">和牌条件</h2>
-            <dl>
-              <div>
-                <dt>和牌方式</dt>
-                <dd>{document.context.mode === 'discard' ? '点炮' : '自摸'}</dd>
-              </div>
-            </dl>
-          </section>
+          <CorrectionStatusPanel
+            issues={calculatorStatus.correctionIssues}
+            onClearIssue={(issueId) => {
+              if (clearCorrectionIssue(issueId)) {
+                setInputNotice('已按你的操作清除定位到的异常内容；可撤销本次修改。');
+              }
+            }}
+          />
 
-          <section className="calculator-panel analysis-summary" aria-labelledby="analysis-title">
+          <WinContextPanel
+            mode={document.context.mode}
+            values={document.context.values}
+            definitions={rulePackage.contexts}
+            missingContextIds={calculatorStatus.missingContextIds}
+            removedContextIds={lastContextRemovals.map(({ contextId }) => contextId)}
+            onModeChange={setContextMode}
+            onValueChange={(contextId, value) => {
+              applyResult(updateContextValue(contextId, value));
+            }}
+            onValueClear={clearContextValue}
+            onUndoModeChange={undoContextRemovals}
+          />
+
+          <section
+            ref={analysisSectionRef}
+            className="calculator-panel analysis-summary"
+            aria-labelledby="analysis-title"
+            tabIndex={-1}
+          >
             <p className="section-kicker">当前状态</p>
             <h2 id="analysis-title">分析结果</h2>
-            <p>尚未开始分析</p>
+            <p>
+              {analysisStatus === 'analyzing'
+                ? '正在分析当前牌面…'
+                : analysisResult === null
+                  ? '尚未开始分析'
+                  : '分析已完成；正式结果内容将在后续结果任务中展示。'}
+            </p>
           </section>
         </div>
       </div>
+
+      <AnalyzeActionBar
+        status={calculatorStatus}
+        hasWinningTile={document.hand.winningTile !== null}
+        onAnalyze={() => {
+          void startAnalysis().then((result) => {
+            if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
+          });
+        }}
+        onCancel={cancelAnalysis}
+        onViewResult={() => {
+          analysisSectionRef.current?.scrollIntoView({ block: 'center' });
+          analysisSectionRef.current?.focus();
+        }}
+      />
 
       {pendingChowAction !== null && (
         <IncompleteChowGuard
