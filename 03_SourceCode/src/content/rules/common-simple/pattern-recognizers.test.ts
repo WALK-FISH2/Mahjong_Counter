@@ -10,6 +10,7 @@ import { createWinContext, knownContextValue } from '../../../domain/mahjong/con
 import { createHandSnapshot } from '../../../domain/mahjong/hand';
 import { getTileMetadata, type TileCode } from '../../../domain/mahjong/tile';
 import { parseRulePackageDefinition } from '../../../schemas/rule-package/rule-package-definition-schema';
+import { COMMON_SIMPLE_PATTERN_RULE_CASES } from './rule-case-corpus';
 import { commonSimpleRulePackageInput } from './rule-package';
 import { commonSimplePatternRecognizerRegistry } from './pattern-recognizers';
 
@@ -332,6 +333,11 @@ describe('common-simple Pattern Recognizers', () => {
     enabledIds.forEach((patternId) => {
       const definition = rule.patterns.find((item) => item.patternId === patternId)!;
       expect(
+        COMMON_SIMPLE_PATTERN_RULE_CASES.some(
+          (ruleCase) => ruleCase.patternId === patternId && ruleCase.polarity === 'positive',
+        ),
+      ).toBe(true);
+      expect(
         recognizer(patternId).recognize({ pattern: definition, facts: positiveFacts[patternId]! }),
         patternId,
       ).not.toHaveLength(0);
@@ -344,6 +350,12 @@ describe('common-simple Pattern Recognizers', () => {
       .filter(({ enabled, patternId }) => enabled && patternId !== 'chickenHand')
       .forEach((definition) => {
         const negativeCaseId = NEGATIVE_CASE_IDS[definition.patternId];
+        expect(
+          COMMON_SIMPLE_PATTERN_RULE_CASES.some(
+            (ruleCase) =>
+              ruleCase.patternId === definition.patternId && ruleCase.polarity === 'negative',
+          ),
+        ).toBe(true);
         expect(negativeCaseId, `${definition.patternId} negative fixture`).toBeDefined();
         expect(
           recognizer(definition.patternId).recognize({

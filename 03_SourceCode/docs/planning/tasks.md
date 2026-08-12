@@ -718,7 +718,7 @@ TODO
 
 ## T406 实现封顶与封顶外项目框架
 
-- 状态：TODO
+- 状态：DONE
 - 目标：支持 cap 前后展示与 extras。
 - 依赖：T405
 - 测试：达到/未达到封顶
@@ -726,7 +726,7 @@ TODO
 
 ## T407 实现 Legality Engine
 
-- 状态：TODO
+- 状态：DONE
 - 目标：区分 legal/illegal/incomplete-context。
 - 依赖：T205、T405
 - 验收：分值与合法性完全分离。
@@ -735,7 +735,7 @@ TODO
 
 ## T408 实现 CalculationExplanation
 
-- 状态：TODO
+- 状态：DONE
 - 目标：生成结构化计算解释。
 - 依赖：T403～T407
 - 验收：结构/番型/关系/计分/合法性均可追踪。
@@ -744,7 +744,7 @@ TODO
 
 ## T409 实现 Candidate Comparison
 
-- 状态：TODO
+- 状态：DONE
 - 目标：选择最高合法结果并保留并列最高。
 - 依赖：T408
 - 验收：不混合拆分番型。
@@ -753,7 +753,7 @@ TODO
 
 ## T410 实现 evaluateHand Domain API
 
-- 状态：TODO
+- 状态：DONE
 - 目标：形成完整正式计算入口。
 - 依赖：T409
 - 验收：输出 legal/structural-illegal/not-winning/incomplete-context。
@@ -762,7 +762,7 @@ TODO
 
 ## T411 扩充大众麻将 Rule Case Corpus
 
-- 状态：TODO
+- 状态：DONE
 - 目标：为 `common-simple@1.0.0` 的全部启用番型、关系和禁用结构建立可发布测试矩阵。
 - 依赖：T403～T410
 - 验收：
@@ -775,11 +775,13 @@ TODO
 
 ### M4 Gate
 
-- [ ] 固定牌例无需 UI 即可输出正确结果
-- [ ] 结果可解释
-- [ ] 多拆分/并列最高通过
-- [ ] 正式进入完整 UI 前 Engine 已稳定
-- [ ] `common-simple@1.0.0` 的 78 个启用番型、关键关系和 3 个禁用结构全部通过 Rule Corpus
+- [x] 固定牌例无需 UI 即可输出正确结果
+- [x] 结果可解释
+- [x] 多拆分/并列最高通过
+- [x] 正式进入完整 UI 前 Engine 已稳定
+- [x] `common-simple@1.0.0` 的 78 个启用番型、关键关系和 3 个禁用结构全部通过 Rule Corpus
+
+> 2026-08-12 M4 Gate 收口：T401～T411 已全部复核为 `DONE`；完整 Domain Pipeline、Explanation、合法候选比较，以及 `common-simple@1.0.0` 的 78 个启用番型正反例、Rule Spec §12 高风险关系和 3 个禁用结构测试均通过。完整命令、结果与范围说明见 `docs/verification/m4/gate.md`；M4 Gate 结论为 `PASS`。
 
 ---
 
