@@ -176,7 +176,7 @@ const rulePackageData = {
       ],
     },
     releasedAt: '2026-08-10T00:00:00.000Z',
-    contentHash: '65357107699c86861707b2c125154500637ed27dbad184d4c9e1f4f682ff15b7',
+    contentHash: 'bde864eedfa5b00b1c5e48e4a4dbc39e8805c9213fb1b0dc79bb10a2fdc09374',
   },
   tileSet: {
     enabledTiles: ENABLED_TILES,
@@ -209,12 +209,34 @@ const rulePackageData = {
       capabilityKey: 'structure.sevenPairs',
       enabled: true,
       supportStatus: 'SUPPORTED',
+      parameters: {
+        requiredPairCount: 7,
+        quadHandling: 'TWO_PAIRS',
+      },
     },
     {
       structureKey: 'thirteen-orphans',
       capabilityKey: 'structure.thirteenOrphans',
       enabled: true,
       supportStatus: 'SUPPORTED',
+      parameters: {
+        requiredTiles: [
+          'm1',
+          'm9',
+          'p1',
+          'p9',
+          's1',
+          's9',
+          'east',
+          'south',
+          'west',
+          'north',
+          'red',
+          'green',
+          'white',
+        ],
+        duplicateTileCount: 2,
+      },
     },
     {
       structureKey: 'seven-star-unrelated',

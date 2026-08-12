@@ -22,12 +22,34 @@ const structures = [
     capabilityKey: 'structure.sevenPairs',
     enabled: true,
     supportStatus: 'SUPPORTED',
+    parameters: {
+      requiredPairCount: 7,
+      quadHandling: 'TWO_PAIRS',
+    },
   },
   {
     structureKey: 'thirteen-orphans',
     capabilityKey: 'structure.thirteenOrphans',
     enabled: true,
     supportStatus: 'SUPPORTED',
+    parameters: {
+      requiredTiles: [
+        'm1',
+        'm9',
+        'p1',
+        'p9',
+        's1',
+        's9',
+        'east',
+        'south',
+        'west',
+        'north',
+        'red',
+        'green',
+        'white',
+      ],
+      duplicateTileCount: 2,
+    },
   },
   {
     structureKey: 'seven-star-unrelated',
@@ -125,5 +147,40 @@ describe('StructureDefinition schema and capability boundary', () => {
     expect(structureDefinitionsSchema.safeParse([structures[0], structures[0]]).success).toBe(
       false,
     );
+  });
+
+  it('requires data-only parameters for special structure capabilities', () => {
+    expect(
+      structureDefinitionsSchema.safeParse([
+        {
+          structureKey: 'seven-pairs',
+          capabilityKey: 'structure.sevenPairs',
+          enabled: true,
+          supportStatus: 'SUPPORTED',
+        },
+      ]).success,
+    ).toBe(false);
+    expect(
+      structureDefinitionsSchema.safeParse([
+        {
+          ...structures[2],
+          parameters: {
+            ...structures[2].parameters,
+            requiredTiles: ['m1', 'm1'],
+          },
+        },
+      ]).success,
+    ).toBe(false);
+    expect(
+      structureDefinitionsSchema.safeParse([
+        {
+          ...structures[2],
+          parameters: {
+            ...structures[2].parameters,
+            duplicateTileCount: 1,
+          },
+        },
+      ]).success,
+    ).toBe(false);
   });
 });
