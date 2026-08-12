@@ -60,3 +60,44 @@ test('keeps the hash route and primary navigation usable at mobile and desktop w
   expect(await navigation.evaluate((element) => getComputedStyle(element).top)).toBe('0px');
   expect(consoleIssues).toEqual([]);
 });
+
+test('supports the Batch 11 calculator input flow at mobile and desktop widths', async ({
+  page,
+}) => {
+  const consoleIssues = collectConsoleIssues(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+
+  const layout = page.getByTestId('calculator-layout');
+  const palette = page.locator('.tile-palette');
+  const oneWan = palette.locator('[data-tile-code="m1"]');
+
+  await expect(page.locator('.calculator-header__rule-name')).toHaveText('大众麻将·通用简化版');
+  await expect(page.locator('.status-badge--test')).toHaveText('测试版');
+  await expect(page.getByText('选择规则')).toBeVisible();
+  expect(
+    (await layout.evaluate((element) => getComputedStyle(element).gridTemplateColumns)).split(' '),
+  ).toHaveLength(1);
+
+  await oneWan.click();
+  await oneWan.click();
+  await oneWan.click();
+  await oneWan.click();
+
+  await expect(oneWan).toBeDisabled();
+  await expect(oneWan).toContainText('×4');
+  await expect(page.getByRole('button', { name: '撤回一万' })).toHaveCount(4);
+
+  await page.getByRole('button', { name: '撤回一万' }).first().click();
+  await expect(oneWan).toBeEnabled();
+  await expect(oneWan).toContainText('×3');
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  const columns = await layout.evaluate((element) => getComputedStyle(element).gridTemplateColumns);
+  expect(columns.split(' ')).toHaveLength(2);
+  await expect(oneWan).toContainText('×3');
+  await expect(page.getByRole('button', { name: '撤回一万' })).toHaveCount(3);
+  expect(consoleIssues).toEqual([]);
+});
