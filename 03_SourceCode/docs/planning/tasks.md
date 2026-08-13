@@ -1105,7 +1105,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T608 实现 Session Rule Result Layer
 
-- 状态：TODO
+- 状态：DONE
 - 目标：应用临时规则后完整重算并可改变合法性。
 - 依赖：T607、T410
 - 测试：门槛改变合法性
@@ -1113,7 +1113,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T609 实现 Fan Adjustment Domain
 
-- 状态：TODO
+- 状态：DONE
 - 目标：exclude/force-include recognized pattern。
 - 依赖：T404
 - 测试：只能操作 recognized pattern
@@ -1121,7 +1121,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T610 实现 Fan Adjustment UI
 
-- 状态：TODO
+- 状态：DONE
 - 目标：允许取消/强制计入并显示冲突原因。
 - 依赖：T609、T602
 - 测试：交互
@@ -1129,7 +1129,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T611 实现失效调整
 
-- 状态：TODO
+- 状态：DONE
 - 目标：牌面变化后 stale adjustment 保留但不计分。
 - 依赖：T609
 - 测试：识别消失/冲突变化
@@ -1137,7 +1137,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T612 实现三层结果切换
 
-- 状态：TODO
+- 状态：DONE
 - 目标：Preset / Session Rule / User Adjustment 分层。
 - 依赖：T608～T611
 - 测试：各组合
@@ -1145,7 +1145,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T613 建立“Fan Adjustment 不改变合法性”性质测试
 
-- 状态：TODO
+- 状态：DONE
 - 目标：把宪章原则固化成自动测试。
 - 依赖：T609
 - 测试：Property-based
@@ -1153,7 +1153,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T614 实现结果操作权限矩阵
 
-- 状态：TODO
+- 状态：DONE
 - 目标：不同 Outcome 显示正确 Save/Copy/Share；Incomplete Context 不允许正式分享。
 - 依赖：T601～T612
 - 测试：权限矩阵，包含 Incomplete Context 的 Save/Share 均禁止

@@ -11,6 +11,8 @@ import {
 import { evaluateHand, type SystemEvaluation } from '../../domain/engine/evaluation';
 import { createHandSnapshot, createWinContext, knownContextValue } from '../../domain/mahjong';
 import { AnalysisResult } from './AnalysisResult';
+import { getResultActionPolicy } from '../../application/calculator/result-action-policy';
+import type { UserAdjustedScore } from '../../domain/engine/adjustment';
 
 const hand = createHandSnapshot({
   concealed: [
@@ -151,5 +153,56 @@ describe('AnalysisResult Batch 14', () => {
     expect(screen.getByText(/计算顺序：结构拆分/)).toBeVisible();
     expect(screen.getByRole('heading', { name: '3. 番型关系处理' })).toBeVisible();
     expect(screen.getByRole('heading', { name: '规则来源' })).toBeVisible();
+  });
+
+  it('switches all three result layers and keeps the user result visibly warned', async () => {
+    const user = userEvent.setup();
+    const result = evaluate();
+    const onSelectLayer = vi.fn();
+    const userAdjustedResult: UserAdjustedScore = Object.freeze({
+      candidateId: result.candidates[0]!.candidateId,
+      baseEvaluationStatus: result.status,
+      baseLegality: result.candidates[0]!.legality,
+      score: Object.freeze({ ...result.candidates[0]!.score, total: 0 }),
+      patterns: Object.freeze([]),
+      adjustmentStates: Object.freeze([]),
+    });
+    render(
+      <AnalysisResult
+        result={result}
+        selectedCandidateId={result.selectedCandidateId}
+        rulePackage={commonSimpleRulePackage}
+        originalHand={hand}
+        onSelectCandidate={vi.fn()}
+        onOpenAdjustments={vi.fn()}
+        activeLayer="user-adjustment"
+        availableLayers={['preset', 'session-rule', 'user-adjustment']}
+        userAdjustedResult={userAdjustedResult}
+        actionPolicy={getResultActionPolicy(result.status)}
+        onSelectLayer={onSelectLayer}
+      />,
+    );
+    expect(screen.getByText('用户调整结果 · 人工调整不改变基础合法性')).toBeVisible();
+    expect(screen.getByText(/用户调整合计/)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '系统预设结果' }));
+    expect(onSelectLayer).toHaveBeenCalledWith('preset');
+  });
+
+  it('renders the formal action matrix, including blocked incomplete sharing', () => {
+    const incomplete = evaluate(commonSimpleRulePackage, createWinContext('discard'));
+    render(
+      <AnalysisResult
+        result={incomplete}
+        selectedCandidateId={incomplete.selectedCandidateId}
+        rulePackage={commonSimpleRulePackage}
+        originalHand={hand}
+        onSelectCandidate={vi.fn()}
+        onOpenAdjustments={vi.fn()}
+        actionPolicy={getResultActionPolicy(incomplete.status)}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: '保存牌例' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '复制结果' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: '分享链接' })).not.toBeInTheDocument();
   });
 });

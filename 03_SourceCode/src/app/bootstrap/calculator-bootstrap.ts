@@ -38,15 +38,22 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
     const ruleRepository = createCommonSimpleRuleRepository();
     const rulePackage = await ruleRepository.getInstalledRule(COMMON_SIMPLE_RULE_REF);
     await recordRecentlyUsedRule(preferencesPort, rulePackage.manifest);
-    const store = createCalculatorStore(rulePackage, undefined, (document, rule) =>
-      evaluateHand({
-        hand: document.hand,
-        context: document.context,
-        rule,
-        patternRecognizers: commonSimplePatternRecognizerRegistry,
+    const store = createCalculatorStore(
+      rulePackage,
+      undefined,
+      (document, rule) =>
+        evaluateHand({
+          hand: document.hand,
+          context: document.context,
+          rule,
+          patternRecognizers: commonSimplePatternRecognizerRegistry,
+          scoringStrategies: commonSimpleScoringStrategyRegistry,
+          extraScoringCalculators: commonSimpleExtraScoringCalculatorRegistry,
+        }),
+      {
         scoringStrategies: commonSimpleScoringStrategyRegistry,
         extraScoringCalculators: commonSimpleExtraScoringCalculatorRegistry,
-      }),
+      },
     );
 
     return Object.freeze({

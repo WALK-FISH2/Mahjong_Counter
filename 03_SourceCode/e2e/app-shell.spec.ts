@@ -276,8 +276,23 @@ test('renders a Batch 14 formal result and rule-declared temporary adjustments',
   await expect(dialog.locator('[data-adjustment-id]')).toHaveCount(161);
   await dialog.locator('[data-adjustment-id="minimumFan"]').fill('8');
   await dialog.getByRole('button', { name: '应用本次规则' }).click();
-  await expect(page.getByText('已保存本次规则调整。系统预设结果保持不变。')).toBeVisible();
-  await expect(page.getByRole('heading', { name: '合法和牌' })).toBeVisible();
+  await expect(
+    page.getByText('已保存本次规则调整，请重新分析以形成完整的本次规则结果。'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: '开始分析' }).click();
+  await expect(page.getByText('本次规则结果 · 本次规则已调整')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '结果层级' })).toBeVisible();
+
+  const countedPattern = page
+    .locator('.result-patterns li')
+    .filter({ has: page.getByRole('button', { name: '取消计入' }) })
+    .first();
+  await countedPattern.getByRole('button', { name: '取消计入' }).click();
+  await expect(page.getByText('用户调整结果 · 人工调整不改变基础合法性')).toBeVisible();
+  await expect(page.getByText(/用户调整合计/)).toBeVisible();
+  await page.getByRole('button', { name: '系统预设结果' }).click();
+  await expect(page.locator('.result-layer-label')).toHaveText('系统预设结果');
+  await expect(page.getByRole('button', { name: '保存牌例' })).toBeEnabled();
   expect(consoleIssues).toEqual([]);
 });
 

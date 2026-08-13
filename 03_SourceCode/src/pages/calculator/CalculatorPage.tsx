@@ -43,6 +43,7 @@ import { RulePickerDialog } from '../../features/rule-switch/RulePickerDialog';
 import { RuleSwitchDialog } from '../../features/rule-switch/RuleSwitchDialog';
 import { TestingRuleConfirmationDialog } from '../../features/rule-switch/TestingRuleConfirmationDialog';
 import { navigationStore } from '../../app/routes/navigation-store';
+import { getResultActionPolicy } from '../../application/calculator/result-action-policy';
 import { AnalysisResult } from '../../features/analysis-result/AnalysisResult';
 import { TemporaryRuleAdjustmentDialog } from '../../features/rule-adjustment/TemporaryRuleAdjustmentDialog';
 
@@ -117,6 +118,8 @@ function rejectionMessage(reasonCode: CalculatorInputRejection): string {
       return '本次分析失败，请检查牌面后重试。';
     case 'TEMPORARY_ADJUSTMENT_INVALID':
       return '本次规则调整不符合当前规则声明。';
+    case 'FAN_ADJUSTMENT_INVALID':
+      return '只能调整当前方案中已经识别且允许操作的番型。';
   }
 }
 
@@ -152,6 +155,8 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const undoHand = useStore(store, (state) => state.undoHand);
   const analysisStatus = useStore(store, (state) => state.analysisStatus);
   const analysisResult = useStore(store, (state) => state.analysisResult);
+  const layeredEvaluation = useStore(store, (state) => state.layeredEvaluation);
+  const activeEvaluationLayer = useStore(store, (state) => state.activeEvaluationLayer);
   const selectedAnalysisCandidateId = useStore(store, (state) => state.selectedAnalysisCandidateId);
   const analysisAvailable = useStore(store, (state) => state.analysisAvailable);
   const lastContextRemovals = useStore(store, (state) => state.lastContextRemovals);
@@ -186,6 +191,9 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
     (state) => state.applyTemporaryRuleAdjustment,
   );
   const restoreSystemPreset = useStore(store, (state) => state.restoreSystemPreset);
+  const setActiveEvaluationLayer = useStore(store, (state) => state.setActiveEvaluationLayer);
+  const applyFanAdjustment = useStore(store, (state) => state.applyFanAdjustment);
+  const clearFanAdjustment = useStore(store, (state) => state.clearFanAdjustment);
   const undoRuleSwitch = useStore(store, (state) => state.undoRuleSwitch);
   const ruleSwitchUndo = useStore(store, (state) => state.ruleSwitchUndo);
   const modalStack = useStore(navigationStore, (state) => state.modalStack);
@@ -600,6 +608,34 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                 originalHand={document.hand}
                 onSelectCandidate={selectAnalysisCandidate}
                 onOpenAdjustments={() => openModal('temporary-rule-adjustment')}
+                activeLayer={activeEvaluationLayer}
+                availableLayers={
+                  layeredEvaluation === null
+                    ? ['preset']
+                    : [
+                        'preset',
+                        ...(layeredEvaluation.sessionRule === undefined
+                          ? []
+                          : (['session-rule'] as const)),
+                        ...(layeredEvaluation.userAdjustment === undefined
+                          ? []
+                          : (['user-adjustment'] as const)),
+                      ]
+                }
+                userAdjustedResult={layeredEvaluation?.userAdjustment?.result ?? null}
+                actionPolicy={getResultActionPolicy(analysisResult.status)}
+                onSelectLayer={setActiveEvaluationLayer}
+                onApplyFanAdjustment={(patternId, action) => {
+                  applyResult(
+                    applyFanAdjustment(patternId, action),
+                    action === 'exclude'
+                      ? '已在用户调整结果中取消计入该番型；基础合法性保持不变。'
+                      : '已在用户调整结果中强制计入该番型；基础合法性保持不变。',
+                  );
+                }}
+                onClearFanAdjustment={(patternId) => {
+                  if (clearFanAdjustment(patternId)) setInputNotice('已清除该番型人工调整。');
+                }}
               />
             )}
           </section>
@@ -758,7 +794,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
               applyResult(
                 applyTemporaryRuleAdjustment(values),
                 values !== null && Object.keys(values).length > 0
-                  ? '已保存本次规则调整。系统预设结果保持不变。'
+                  ? '已保存本次规则调整，请重新分析以形成完整的本次规则结果。'
                   : '当前使用系统预设规则。',
               )
             ) {

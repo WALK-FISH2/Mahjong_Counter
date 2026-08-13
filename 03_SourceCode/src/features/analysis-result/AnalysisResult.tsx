@@ -1,4 +1,12 @@
 import type { CandidateResult, SystemEvaluation } from '../../domain/engine/evaluation';
+import {
+  FORCE_INCLUDE_REASONS,
+  type FanAdjustmentState,
+  type EvaluationLayer,
+  type UserAdjustedPattern,
+  type UserAdjustedScore,
+} from '../../domain/engine/adjustment';
+import type { ResultActionPolicy } from '../../application/calculator/result-action-policy';
 import type { ExplanationNode } from '../../domain/engine/explanation';
 import type { Meld } from '../../domain/mahjong/meld';
 import type { HandSnapshot } from '../../domain/mahjong/hand';
@@ -13,6 +21,13 @@ export type AnalysisResultProps = Readonly<{
   originalHand: HandSnapshot;
   onSelectCandidate: (candidateId: string) => void;
   onOpenAdjustments: () => void;
+  activeLayer?: EvaluationLayer;
+  availableLayers?: readonly EvaluationLayer[];
+  userAdjustedResult?: UserAdjustedScore | null;
+  actionPolicy?: ResultActionPolicy;
+  onSelectLayer?: (layer: EvaluationLayer) => void;
+  onApplyFanAdjustment?: (patternId: string, action: 'exclude' | 'force-include') => void;
+  onClearFanAdjustment?: (patternId: string) => void;
 }>;
 
 const RELATION_REASON_LABELS: Readonly<Record<string, string>> = Object.freeze({
@@ -167,39 +182,163 @@ function OriginalHand({ hand }: Readonly<{ hand: HandSnapshot }>) {
 function PatternSummary({
   candidate,
   rulePackage,
-}: Readonly<{ candidate: CandidateResult; rulePackage: RulePackageDefinition }>) {
+  userAdjustedResult,
+  onApplyFanAdjustment,
+  onClearFanAdjustment,
+}: Readonly<{
+  candidate: CandidateResult;
+  rulePackage: RulePackageDefinition;
+  userAdjustedResult: UserAdjustedScore | null;
+  onApplyFanAdjustment:
+    ((patternId: string, action: 'exclude' | 'force-include') => void) | undefined;
+  onClearFanAdjustment: ((patternId: string) => void) | undefined;
+}>) {
   const patterns = new Map(rulePackage.patterns.map((pattern) => [pattern.patternId, pattern]));
+  const countedPatterns: readonly UserAdjustedPattern[] =
+    userAdjustedResult?.patterns.filter(({ displayStatus }) => displayStatus === 'COUNTED') ??
+    candidate.relation.counted.map((resolved) => ({
+      resolved,
+      displayStatus: 'COUNTED' as const,
+    }));
+  const excludedPatterns: readonly UserAdjustedPattern[] =
+    userAdjustedResult?.patterns.filter(({ displayStatus }) => displayStatus === 'EXCLUDED') ??
+    candidate.relation.excluded.map((resolved) => ({
+      resolved,
+      displayStatus: 'EXCLUDED' as const,
+    }));
+  const staleAdjustments =
+    userAdjustedResult?.adjustmentStates.filter(
+      (state): state is Extract<FanAdjustmentState, { status: 'stale' }> =>
+        state.status === 'stale',
+    ) ?? [];
+  const staleReasonLabels: Readonly<Record<string, string>> = Object.freeze({
+    PATTERN_NOT_RECOGNIZED: '当前牌面已不再识别该番型',
+    TARGET_NOT_COUNTED: '该番型当前已不在计入结果中',
+    TARGET_NOT_EXCLUDED: '该番型当前已不在排除结果中',
+    CONFLICT_NOT_FORCE_INCLUDEABLE: '当前排除原因不允许强制计入',
+    CONFLICT_NOT_CONFIRMED: '当前冲突尚未确认',
+    CONFLICT_CHANGED: '冲突关系已变化，需要重新确认',
+  });
+  const canForceInclude = (reason: string) =>
+    FORCE_INCLUDE_REASONS.includes(reason as (typeof FORCE_INCLUDE_REASONS)[number]);
+
+  const adjustmentButton = (
+    patternId: string,
+    adjustmentAction: 'exclude' | 'force-include' | undefined,
+    baseStatus: 'COUNTED' | 'EXCLUDED',
+    reason: string,
+  ) => {
+    if (adjustmentAction !== undefined) {
+      return (
+        <button
+          type="button"
+          className="secondary-action"
+          onClick={() => onClearFanAdjustment?.(patternId)}
+        >
+          {adjustmentAction === 'exclude' ? '恢复计入' : '恢复排除'}
+        </button>
+      );
+    }
+    if (baseStatus === 'EXCLUDED' && !canForceInclude(reason)) return null;
+    return (
+      <button
+        type="button"
+        className="secondary-action"
+        onClick={() =>
+          onApplyFanAdjustment?.(patternId, baseStatus === 'COUNTED' ? 'exclude' : 'force-include')
+        }
+      >
+        {baseStatus === 'COUNTED' ? '取消计入' : '强制计入'}
+      </button>
+    );
+  };
   return (
     <section className="result-block result-patterns" aria-labelledby="pattern-summary-title">
       <h3 id="pattern-summary-title">番型明细</h3>
       <h4>已计入番型</h4>
-      {candidate.relation.counted.length === 0 ? (
+      {countedPatterns.length === 0 ? (
         <p>没有计入番型。</p>
       ) : (
         <ul>
-          {candidate.relation.counted.map(({ candidate: pattern }) => (
-            <li key={pattern.patternId}>
-              <strong>{patterns.get(pattern.patternId)?.name ?? pattern.patternId}</strong>
-              <span>
-                {patterns.get(pattern.patternId)?.value ?? '—'} {rulePackage.scoring.unit}
-                {pattern.occurrences > 1 ? ` × ${pattern.occurrences}` : ''}
-              </span>
-            </li>
-          ))}
+          {countedPatterns.map(({ resolved, adjustmentAction }) => {
+            const pattern = resolved.candidate;
+            return (
+              <li key={pattern.patternId}>
+                <div>
+                  <strong>{patterns.get(pattern.patternId)?.name ?? pattern.patternId}</strong>
+                  <span>
+                    {patterns.get(pattern.patternId)?.value ?? '—'} {rulePackage.scoring.unit}
+                    {pattern.occurrences > 1 ? ` × ${pattern.occurrences}` : ''}
+                  </span>
+                  {adjustmentAction === 'force-include' && (
+                    <span className="fan-adjustment-warning">
+                      强制计入（原排除原因：
+                      {RELATION_REASON_LABELS[resolved.reason] ?? resolved.reason}）
+                    </span>
+                  )}
+                </div>
+                {adjustmentButton(
+                  pattern.patternId,
+                  adjustmentAction,
+                  resolved.status,
+                  resolved.reason,
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       <h4>未计入番型及原因</h4>
-      {candidate.relation.excluded.length === 0 ? (
+      {excludedPatterns.length === 0 ? (
         <p>没有被排除的已识别番型。</p>
       ) : (
         <ul data-testid="excluded-patterns">
-          {candidate.relation.excluded.map(({ candidate: pattern, reason }) => (
-            <li key={pattern.patternId}>
-              <strong>{patterns.get(pattern.patternId)?.name ?? pattern.patternId}</strong>
-              <span>{RELATION_REASON_LABELS[reason] ?? reason}</span>
-            </li>
-          ))}
+          {excludedPatterns.map(({ resolved, adjustmentAction }) => {
+            const pattern = resolved.candidate;
+            return (
+              <li key={pattern.patternId}>
+                <div>
+                  <strong>{patterns.get(pattern.patternId)?.name ?? pattern.patternId}</strong>
+                  <span>
+                    {adjustmentAction === 'exclude'
+                      ? '用户取消计入'
+                      : (RELATION_REASON_LABELS[resolved.reason] ?? resolved.reason)}
+                  </span>
+                </div>
+                {adjustmentButton(
+                  pattern.patternId,
+                  adjustmentAction,
+                  resolved.status,
+                  resolved.reason,
+                )}
+              </li>
+            );
+          })}
         </ul>
+      )}
+      {staleAdjustments.length > 0 && (
+        <div className="stale-adjustments" role="status">
+          <h4>需要重新确认的调整</h4>
+          <ul>
+            {staleAdjustments.map((state) => (
+              <li key={`${state.adjustment.patternId}-${state.adjustment.action}`}>
+                <div>
+                  <strong>
+                    {patterns.get(state.adjustment.patternId)?.name ?? state.adjustment.patternId}
+                  </strong>
+                  <span>{staleReasonLabels[state.reasonCode] ?? state.reasonCode}</span>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={() => onClearFanAdjustment?.(state.adjustment.patternId)}
+                >
+                  移除失效调整
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );
@@ -317,6 +456,13 @@ export function AnalysisResult({
   originalHand,
   onSelectCandidate,
   onOpenAdjustments,
+  activeLayer = 'preset',
+  availableLayers = ['preset'],
+  userAdjustedResult = null,
+  actionPolicy,
+  onSelectLayer,
+  onApplyFanAdjustment,
+  onClearFanAdjustment,
 }: AnalysisResultProps) {
   const candidate = selectedCandidate(result, selectedCandidateId);
   const statusContent = {
@@ -329,15 +475,45 @@ export function AnalysisResult({
     'incomplete-context': ['和牌条件不完整', '结构已成立，但缺少完成正式判断所需的和牌条件。'],
   } as const;
   const [title, description] = statusContent[result.status];
+  const displayScore =
+    activeLayer === 'user-adjustment' && userAdjustedResult !== null
+      ? userAdjustedResult.score
+      : candidate?.score;
 
   return (
     <div className="analysis-result" data-result-status={result.status}>
-      <p className="result-layer-label">系统预设结果</p>
+      {availableLayers.length > 1 && (
+        <nav className="result-layer-switcher" aria-label="结果层级">
+          {availableLayers.map((layer) => (
+            <button
+              type="button"
+              className="secondary-action"
+              aria-pressed={activeLayer === layer}
+              key={layer}
+              onClick={() => onSelectLayer?.(layer)}
+            >
+              {layer === 'preset'
+                ? '系统预设结果'
+                : layer === 'session-rule'
+                  ? '本次规则结果'
+                  : '用户调整结果'}
+            </button>
+          ))}
+        </nav>
+      )}
+      <p className="result-layer-label">
+        {activeLayer === 'preset'
+          ? '系统预设结果'
+          : activeLayer === 'session-rule'
+            ? '本次规则结果 · 本次规则已调整'
+            : '用户调整结果 · 人工调整不改变基础合法性'}
+      </p>
       <h3>{title}</h3>
       <p>{description}</p>
-      {result.status === 'legal-win' && candidate !== null && (
+      {result.status === 'legal-win' && displayScore !== undefined && (
         <p className="result-total">
-          <strong>{candidate.score.total}</strong> {candidate.score.unit}
+          {activeLayer === 'user-adjustment' && '用户调整合计：'}
+          <strong>{displayScore.total}</strong> {displayScore.unit}
         </p>
       )}
       {candidate !== null && result.status !== 'not-winning' && (
@@ -361,26 +537,32 @@ export function AnalysisResult({
           <ArrangedHand candidate={candidate} />
           <OriginalHand hand={originalHand} />
           <LegalityDetails candidate={candidate} />
-          <PatternSummary candidate={candidate} rulePackage={rulePackage} />
+          <PatternSummary
+            candidate={candidate}
+            rulePackage={rulePackage}
+            userAdjustedResult={activeLayer === 'user-adjustment' ? userAdjustedResult : null}
+            onApplyFanAdjustment={onApplyFanAdjustment}
+            onClearFanAdjustment={onClearFanAdjustment}
+          />
           <section className="result-block score-breakdown" aria-labelledby="score-breakdown-title">
             <h3 id="score-breakdown-title">计分摘要</h3>
             <dl>
               <div>
                 <dt>封顶前</dt>
                 <dd>
-                  {candidate.score.totalBeforeCap} {candidate.score.unit}
+                  {displayScore?.totalBeforeCap} {displayScore?.unit}
                 </dd>
               </div>
               <div>
                 <dt>封顶后</dt>
                 <dd>
-                  {candidate.score.cap.subtotalAfterCap} {candidate.score.unit}
+                  {displayScore?.cap.subtotalAfterCap} {displayScore?.unit}
                 </dd>
               </div>
               <div>
                 <dt>最终合计</dt>
                 <dd>
-                  {candidate.score.total} {candidate.score.unit}
+                  {displayScore?.total} {displayScore?.unit}
                 </dd>
               </div>
             </dl>
@@ -391,6 +573,25 @@ export function AnalysisResult({
       <button className="secondary-action" type="button" onClick={onOpenAdjustments}>
         临时调整本次规则
       </button>
+      {actionPolicy !== undefined && (
+        <div className="result-actions" aria-label="结果操作">
+          {actionPolicy.save && (
+            <button type="button" className="primary-action">
+              保存牌例
+            </button>
+          )}
+          {actionPolicy.copy && (
+            <button type="button" className="secondary-action">
+              复制结果
+            </button>
+          )}
+          {actionPolicy.share && (
+            <button type="button" className="secondary-action">
+              分享链接
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

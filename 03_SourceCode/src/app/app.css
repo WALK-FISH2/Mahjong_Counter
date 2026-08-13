@@ -932,6 +932,33 @@ summary:focus-visible {
   font-weight: 800;
 }
 
+.result-layer-switcher,
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.result-layer-switcher [aria-pressed='true'] {
+  border-color: var(--color-accent);
+  color: #fff;
+  background: var(--color-accent);
+}
+
+.user-adjusted-total {
+  padding: 0.65rem;
+  border: 1px solid #d49a2d;
+  border-radius: 0.55rem;
+  background: #fff8df;
+}
+
+.stale-adjustment {
+  display: block;
+  margin-top: 0.2rem;
+  color: #8a4d00;
+  font-size: 0.78rem;
+}
+
 .result-total {
   color: var(--color-text);
   font-size: 1.1rem;
