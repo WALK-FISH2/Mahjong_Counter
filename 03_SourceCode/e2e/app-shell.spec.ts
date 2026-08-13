@@ -276,10 +276,7 @@ test('renders a Batch 14 formal result and rule-declared temporary adjustments',
   await expect(dialog.locator('[data-adjustment-id]')).toHaveCount(161);
   await dialog.locator('[data-adjustment-id="minimumFan"]').fill('8');
   await dialog.getByRole('button', { name: '应用本次规则' }).click();
-  await expect(
-    page.getByText('已保存本次规则调整，请重新分析以形成完整的本次规则结果。'),
-  ).toBeVisible();
-  await page.getByRole('button', { name: '开始分析' }).click();
+  await expect(page.getByText('已保存本次规则调整，正在自动重新分析。')).toBeVisible();
   await expect(page.getByText('本次规则结果 · 本次规则已调整')).toBeVisible();
   await expect(page.getByRole('navigation', { name: '结果层级' })).toBeVisible();
 
@@ -293,6 +290,16 @@ test('renders a Batch 14 formal result and rule-declared temporary adjustments',
   await page.getByRole('button', { name: '系统预设结果' }).click();
   await expect(page.locator('.result-layer-label')).toHaveText('系统预设结果');
   await expect(page.getByRole('button', { name: '保存牌例' })).toBeEnabled();
+
+  await page.getByRole('button', { name: '忽略当前和牌，继续分析出牌' }).click();
+  const independentDiscard = page
+    .getByRole('heading', { name: '打哪张后听牌' })
+    .locator('xpath=../../..');
+  await expect(independentDiscard).toContainText('当前正式和牌结果保持不变');
+  await expect(page.getByRole('heading', { name: '合法和牌' })).toBeVisible();
+  await independentDiscard.getByRole('button', { name: '返回正式和牌结果' }).click();
+  await expect(independentDiscard).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '合法和牌' })).toBeVisible();
   expect(consoleIssues).toEqual([]);
 });
 
@@ -333,6 +340,61 @@ test('supports Batch 15A Quick Calc without formal result capabilities', async (
 
   await page.getByRole('button', { name: '返回牌面计算' }).click();
   await expect(page.getByRole('heading', { name: '选牌器' })).toBeVisible();
+  expect(consoleIssues).toEqual([]);
+});
+
+test('supports Batch17 wait and discard-to-ready presentation', async ({ page }) => {
+  const consoleIssues = collectConsoleIssues(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+
+  const palette = page.locator('.tile-palette');
+  const selectTile = async (tile: string, count = 1) => {
+    for (let index = 0; index < count; index += 1) {
+      await palette.locator(`[data-tile-code="${tile}"]`).click();
+    }
+  };
+  await selectTile('m1');
+  await selectTile('m2');
+  await selectTile('m3');
+  await selectTile('p1');
+  await selectTile('p2');
+  await selectTile('p3');
+  await selectTile('s1');
+  await selectTile('s2');
+  await selectTile('s3');
+  await selectTile('east', 3);
+  await selectTile('white');
+
+  const context = page.getByRole('heading', { name: '和牌条件' }).locator('..');
+  await context.getByLabel('门风').selectOption({ label: '南风' });
+  await context.getByLabel('圈风').selectOption({ label: '西风' });
+
+  const waitPanel = page.getByRole('heading', { name: '听牌分析' }).locator('xpath=../../..');
+  await waitPanel.getByRole('button', { name: '开始分析' }).click();
+  const testingConfirmation = page.getByRole('dialog', { name: '确认使用测试版规则' });
+  if (await testingConfirmation.isVisible()) {
+    await testingConfirmation.getByRole('button', { name: '确认并继续' }).click();
+  }
+  await expect(waitPanel.getByRole('heading', { name: /合法待胡牌/ })).toBeVisible();
+  await expect(waitPanel.getByText(/最高合法结果/).first()).toBeVisible();
+  await expect(waitPanel.locator('[data-tile-asset]')).not.toHaveCount(0);
+  await expect(waitPanel.getByText(/查看点炮与自摸差异|另一和牌方式没有结果差异/)).toBeVisible();
+
+  await selectTile('m9');
+  const discardPanel = page
+    .getByRole('heading', { name: '打哪张后听牌' })
+    .locator('xpath=../../..');
+  await discardPanel.getByRole('button', { name: '开始分析' }).click();
+  const markers = page.getByRole('button', { name: '查看打出九万后的听牌' });
+  await expect(markers).toHaveCount(1);
+  await markers.click();
+  await expect(markers).toHaveAttribute('aria-pressed', 'true');
+  await expect(discardPanel).toContainText('合法待胡牌');
+
+  await page.getByRole('link', { name: '设置' }).click();
+  await page.getByRole('radio', { name: '听口优先' }).click();
+  await expect(page.getByRole('radio', { name: '听口优先' })).toBeChecked();
   expect(consoleIssues).toEqual([]);
 });
 

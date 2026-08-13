@@ -7,6 +7,7 @@ import {
   consumeOnboarding,
   recordRecentlyUsedRule,
   replayOnboarding,
+  setWaitSortMode,
 } from './calculator-preferences';
 import {
   confirmTestingRule,
@@ -65,6 +66,12 @@ describe('Calculator Preferences Port', () => {
     const second = await port.read();
     expect(first).not.toBe(second);
     expect(first).toEqual(second);
+  });
+
+  it('remembers the ready-analysis sort preference without storing analysis results', async () => {
+    const port = new InMemoryCalculatorPreferencesPort();
+    await setWaitSortMode(port, 'wait-count');
+    await expect(port.read()).resolves.toMatchObject({ waitSortMode: 'wait-count' });
   });
 });
 

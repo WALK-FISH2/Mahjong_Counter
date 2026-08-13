@@ -1207,7 +1207,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T701 建立 Worker Protocol
 
-- 状态：TODO
+- 状态：DONE
 - 目标：定义 evaluate/wait/discard 请求响应。
 - 依赖：M6
 - 测试：协议序列化
@@ -1215,7 +1215,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T702 实现 Engine Worker
 
-- 状态：TODO
+- 状态：DONE
 - 目标：将重计算移出主线程。
 - 依赖：T701
 - 验收：页面交互在分析中保持响应。
@@ -1224,7 +1224,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T703 实现 stale revision 丢弃
 
-- 状态：TODO
+- 状态：DONE
 - 目标：旧结果永不污染新牌面。
 - 依赖：T702、T110
 - 测试：快速连续修改
@@ -1232,7 +1232,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T704 实现分析取消与 Worker 重建
 
-- 状态：TODO
+- 状态：DONE
 - 目标：用户可取消长任务。
 - 依赖：T702
 - 测试：cancel 后无结果进入 UI
@@ -1240,7 +1240,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T705 实现 Wait Analysis Domain
 
-- 状态：TODO
+- 状态：DONE
 - 目标：枚举 enabledTiles 并复用正式 evaluate。
 - 依赖：T410、T702
 - 测试：合法/待确认/结构可和
@@ -1248,7 +1248,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T706 实现 Discard-to-ready Domain
 
-- 状态：TODO
+- 状态：DONE
 - 目标：枚举暗手牌 distinct discard。
 - 依赖：T705
 - 测试：一步进入听牌/无听牌
@@ -1256,7 +1256,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T707 实现 Worker 会话级 LRU Cache
 
-- 状态：TODO
+- 状态：DONE
 - 目标：减少重复牌面分析。
 - 依赖：T705～T706
 - 测试：缓存命中与版本隔离
@@ -1264,7 +1264,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T708 实现弃牌候选小三角
 
-- 状态：TODO
+- 状态：DONE
 - 目标：在对应暗手牌上标记。
 - 依赖：T706
 - 测试：等价重复牌
@@ -1272,7 +1272,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T709 实现待胡牌展示
 
-- 状态：TODO
+- 状态：DONE
 - 目标：麻将牌图 + 最高合法结果。
 - 依赖：T705
 - 测试：多待胡牌
@@ -1280,7 +1280,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T710 实现点炮/自摸差异展示
 
-- 状态：TODO
+- 状态：DONE
 - 目标：主模式与另一模式分离。
 - 依赖：T705
 - 测试：两模式结果不同牌例
@@ -1288,7 +1288,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T711 实现听牌排序设置
 
-- 状态：TODO
+- 状态：DONE
 - 目标：高番优先/听口优先。
 - 依赖：T705～T706
 - 测试：稳定排序
@@ -1296,7 +1296,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T712 建立性能回归牌例
 
-- 状态：TODO
+- 状态：DONE
 - 目标：记录普通和牌、复杂拆分、听牌、弃牌分析。
 - 依赖：T705～T707
 - 验收：固定牌例、环境、运行次数和统计口径可复现，能够为 T1217 提供明确基线并检测性能回退。
@@ -1306,7 +1306,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T713 实现首次结果后的防抖自动重算
 
-- 状态：TODO
+- 状态：DONE
 - 目标：首次正式结果后，胡牌张、上下文、临时规则和番型调整变化触发协调后的防抖重算。
 - 依赖：T702～T704、T518
 - 验收：旧结果立即失效；只有当前 documentRevision 的结果可重新成为正式结果。
@@ -1315,7 +1315,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T714 实现 Engine Error 恢复流程
 
-- 状态：TODO
+- 状态：DONE
 - 目标：为计算异常提供业务级恢复，不依赖 React Error Boundary。
 - 依赖：T704、T520
 - 验收：
@@ -1328,7 +1328,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T715 实现合法和牌继续弃牌分析入口
 
-- 状态：TODO
+- 状态：DONE
 - 目标：在 Legal Win 中提供弱化入口“忽略当前和牌，继续分析出牌”。
 - 依赖：T706、T602
 - 验收：入口不改变或覆盖当前正式和牌结果，只建立独立弃牌分析视图。
@@ -1337,11 +1337,13 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ### M7 Gate
 
-- [ ] 13 张听牌可用
-- [ ] 14 张弃牌后听牌可用
-- [ ] Worker stale/cancel 正确
-- [ ] 不显示剩余张数或概率
-- [ ] 防抖自动重算、Engine Error 恢复和合法和牌继续分析通过
+- [x] 13 张听牌可用
+- [x] 14 张弃牌后听牌可用
+- [x] Worker stale/cancel 正确
+- [x] 不显示剩余张数或概率
+- [x] 防抖自动重算、Engine Error 恢复和合法和牌继续分析通过
+
+Gate 证据：`docs/verification/m7/gate.md`
 
 ---
 

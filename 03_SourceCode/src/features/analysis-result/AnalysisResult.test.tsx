@@ -155,6 +155,26 @@ describe('AnalysisResult Batch 14', () => {
     expect(screen.getByRole('heading', { name: '规则来源' })).toBeVisible();
   });
 
+  it('offers a secondary discard-analysis entry only for a legal win', async () => {
+    const user = userEvent.setup();
+    const onContinue = vi.fn();
+    const result = evaluate();
+    render(
+      <AnalysisResult
+        result={result}
+        selectedCandidateId={result.selectedCandidateId}
+        rulePackage={commonSimpleRulePackage}
+        originalHand={hand}
+        onSelectCandidate={() => undefined}
+        onOpenAdjustments={() => undefined}
+        onContinueDiscardAnalysis={onContinue}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '忽略当前和牌，继续分析出牌' }));
+    expect(onContinue).toHaveBeenCalledOnce();
+  });
+
   it('switches all three result layers and keeps the user result visibly warned', async () => {
     const user = userEvent.setup();
     const result = evaluate();

@@ -13,6 +13,8 @@ export type EnteredHandBoardProps = Readonly<{
   canUndo: boolean;
   selectingWinningTile: boolean;
   distinguishOpenKongKind: boolean;
+  discardCandidateTiles?: readonly TileCode[];
+  selectedDiscardTile?: TileCode | null;
   canUpgradePung: (meld: Meld) => boolean;
   onRemoveConcealed: (originalIndex: number) => void;
   onArrange: () => void;
@@ -23,6 +25,7 @@ export type EnteredHandBoardProps = Readonly<{
   onRemoveMeld: (meldId: string) => void;
   onRemoveFlower: (index: number) => void;
   onUndo: () => void;
+  onSelectDiscardCandidate?: ((tile: TileCode) => void) | undefined;
 }>;
 
 function meldLabel(meld: Meld): string {
@@ -46,6 +49,8 @@ export function EnteredHandBoard({
   canUndo,
   selectingWinningTile,
   distinguishOpenKongKind,
+  discardCandidateTiles = [],
+  selectedDiscardTile = null,
   canUpgradePung,
   onRemoveConcealed,
   onArrange,
@@ -56,7 +61,9 @@ export function EnteredHandBoard({
   onRemoveMeld,
   onRemoveFlower,
   onUndo,
+  onSelectDiscardCandidate,
 }: EnteredHandBoardProps) {
+  const discardCandidates = new Set(discardCandidateTiles);
   return (
     <section className="calculator-panel hand-board" aria-labelledby="hand-board-title">
       <div className="calculator-panel__heading">
@@ -84,15 +91,27 @@ export function EnteredHandBoard({
         ) : (
           <div className="hand-board__tiles" aria-label="当前手牌">
             {concealedTiles.map(({ tile, originalIndex }) => (
-              <button
-                className="tile-button tile-button--entered"
-                type="button"
-                key={`${tile}-${originalIndex}`}
-                aria-label={`撤回${getTileMetadata(tile).chineseName}`}
-                onClick={() => onRemoveConcealed(originalIndex)}
-              >
-                <TileFace tile={tile} />
-              </button>
+              <span className="entered-tile-stack" key={`${tile}-${originalIndex}`}>
+                <button
+                  className="tile-button tile-button--entered"
+                  type="button"
+                  aria-label={`撤回${getTileMetadata(tile).chineseName}`}
+                  onClick={() => onRemoveConcealed(originalIndex)}
+                >
+                  <TileFace tile={tile} />
+                </button>
+                {discardCandidates.has(tile) && onSelectDiscardCandidate !== undefined && (
+                  <button
+                    className="discard-candidate-marker"
+                    type="button"
+                    aria-label={`查看打出${getTileMetadata(tile).chineseName}后的听牌`}
+                    aria-pressed={selectedDiscardTile === tile}
+                    onClick={() => onSelectDiscardCandidate(tile)}
+                  >
+                    <span aria-hidden="true">▲</span>
+                  </button>
+                )}
+              </span>
             ))}
           </div>
         )}

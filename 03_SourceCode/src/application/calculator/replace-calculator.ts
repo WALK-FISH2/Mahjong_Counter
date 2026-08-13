@@ -16,6 +16,7 @@ import type { ContextDefinition } from '../../domain/rules/context-definition';
 import type { RuleMeldType } from '../../domain/rules/hand-model';
 import type { RulePackageDefinition } from '../../domain/rules/rule-package';
 import { createInitialCalculatorDocument, type CalculatorStore } from './calculator-store';
+import type { DraftProtectionPort } from '../analysis-lifecycle';
 
 export const CALCULATOR_REPLACEMENT_REASONS = [
   'new-hand',
@@ -51,10 +52,10 @@ export type ReplaceCalculatorConfirmation = (
   reason: CalculatorReplacementReason,
 ) => Promise<boolean> | boolean;
 
-export class InMemoryCalculatorDraftPort implements CalculatorDraftPort {
+export class InMemoryCalculatorDraftPort implements CalculatorDraftPort, DraftProtectionPort {
   #lastProtected: Readonly<{
     document: CalculatorDocument;
-    reason: CalculatorReplacementReason;
+    reason: CalculatorReplacementReason | 'engine-error';
   }> | null = null;
 
   protectBeforeReplacement(
@@ -62,6 +63,11 @@ export class InMemoryCalculatorDraftPort implements CalculatorDraftPort {
     reason: CalculatorReplacementReason,
   ): Promise<void> {
     this.#lastProtected = Object.freeze({ document, reason });
+    return Promise.resolve();
+  }
+
+  protectCurrentDraft(document: CalculatorDocument): Promise<void> {
+    this.#lastProtected = Object.freeze({ document, reason: 'engine-error' });
     return Promise.resolve();
   }
 
