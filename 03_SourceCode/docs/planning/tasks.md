@@ -1047,7 +1047,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T601 建立 AnalysisResult 状态渲染
 
-- 状态：TODO
+- 状态：DONE
 - 目标：按 Domain union 显示不同结果类型。
 - 依赖：M5
 - 验收：不通过 score>0 猜测合法性。
@@ -1056,7 +1056,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T602 实现正式结果摘要
 
-- 状态：TODO
+- 状态：DONE
 - 目标：显示最高合法结果、计入/未计入番型。
 - 依赖：T601
 - 测试：Result fixture
@@ -1064,7 +1064,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T603 实现最高拆分牌面
 
-- 状态：TODO
+- 状态：DONE
 - 目标：按当前 Candidate 排列并高亮胡牌张。
 - 依赖：T602
 - 测试：并列切换
@@ -1072,7 +1072,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T604 实现完整计算过程
 
-- 状态：TODO
+- 状态：DONE
 - 目标：渲染 Explanation。
 - 依赖：T408、T602
 - 验收：包含来源、关系、计算顺序。
@@ -1081,7 +1081,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T605 实现并列最高方案切换
 
-- 状态：TODO
+- 状态：DONE
 - 目标：保留所有 tied-high。
 - 依赖：T409、T603
 - 测试：多 tied-high
@@ -1089,7 +1089,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T606 实现 Temporary Rule Adjustment UI
 
-- 状态：TODO
+- 状态：DONE
 - 目标：只展示规则声明的临时调整字段。
 - 依赖：T210、T602
 - 测试：字段白名单
@@ -1097,7 +1097,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T607 实现 EffectiveRule 构建
 
-- 状态：TODO
+- 状态：DONE
 - 目标：临时规则不修改原 RulePackage。
 - 依赖：T606
 - 测试：immutability
@@ -1105,7 +1105,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T608 实现 Session Rule Result Layer
 
-- 状态：TODO
+- 状态：DONE
 - 目标：应用临时规则后完整重算并可改变合法性。
 - 依赖：T607、T410
 - 测试：门槛改变合法性
@@ -1113,7 +1113,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T609 实现 Fan Adjustment Domain
 
-- 状态：TODO
+- 状态：DONE
 - 目标：exclude/force-include recognized pattern。
 - 依赖：T404
 - 测试：只能操作 recognized pattern
@@ -1121,7 +1121,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T610 实现 Fan Adjustment UI
 
-- 状态：TODO
+- 状态：DONE
 - 目标：允许取消/强制计入并显示冲突原因。
 - 依赖：T609、T602
 - 测试：交互
@@ -1129,7 +1129,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T611 实现失效调整
 
-- 状态：TODO
+- 状态：DONE
 - 目标：牌面变化后 stale adjustment 保留但不计分。
 - 依赖：T609
 - 测试：识别消失/冲突变化
@@ -1137,7 +1137,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T612 实现三层结果切换
 
-- 状态：TODO
+- 状态：DONE
 - 目标：Preset / Session Rule / User Adjustment 分层。
 - 依赖：T608～T611
 - 测试：各组合
@@ -1145,7 +1145,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T613 建立“Fan Adjustment 不改变合法性”性质测试
 
-- 状态：TODO
+- 状态：DONE
 - 目标：把宪章原则固化成自动测试。
 - 依赖：T609
 - 测试：Property-based
@@ -1153,7 +1153,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T614 实现结果操作权限矩阵
 
-- 状态：TODO
+- 状态：DONE
 - 目标：不同 Outcome 显示正确 Save/Copy/Share；Incomplete Context 不允许正式分享。
 - 依赖：T601～T612
 - 测试：权限矩阵，包含 Incomplete Context 的 Save/Share 均禁止
@@ -1161,7 +1161,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T615 实现 Quick Calc Domain / Application Use Case
 
-- 状态：TODO
+- 状态：DONE
 - 目标：复用当前规则关系、计分、合法性、门槛和封顶完成手选番型合计。
 - 依赖：T405～T407、T210
 - 验收：
@@ -1173,7 +1173,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T616 实现 Quick Calc UI
 
-- 状态：TODO
+- 状态：DONE
 - 目标：在 Calculator 提供弱化入口和手选番型流程。
 - 依赖：T615、T523
 - 验收：
@@ -1185,7 +1185,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T617 固化 Quick Calc 输出限制
 
-- 状态：TODO
+- 状态：DONE
 - 目标：确保 Quick Calc 不能伪装成正式牌例结果。
 - 依赖：T614～T616
 - 验收：不显示保存牌例、牌例分享、听牌或多拆分入口，只允许临时查看和复制文字。
@@ -1194,10 +1194,12 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ### M6 Gate
 
-- [ ] 三层结果边界清晰
-- [ ] Fan Adjustment 永远不改变合法性
-- [ ] 完整结果过程可解释
-- [ ] Quick Calc 可用且未验证标识、保存/分享限制全部通过
+- [x] 三层结果边界清晰
+- [x] Fan Adjustment 永远不改变合法性
+- [x] 完整结果过程可解释
+- [x] Quick Calc 可用且未验证标识、保存/分享限制全部通过
+
+Gate 证据：`docs/verification/m6/gate.md`
 
 ---
 

@@ -229,6 +229,113 @@ test('supports Batch 13A onboarding, rule picker, Replace Guard, and navigation 
   expect(consoleIssues).toEqual([]);
 });
 
+test('renders a Batch 14 formal result and rule-declared temporary adjustments', async ({
+  page,
+}) => {
+  const consoleIssues = collectConsoleIssues(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+
+  const onboarding = page.getByLabel('首次使用引导');
+  if (await onboarding.isVisible()) {
+    await onboarding.getByRole('button', { name: '知道了' }).click();
+  }
+  const palette = page.locator('.tile-palette');
+  const select = async (tile: string, count = 1) => {
+    for (let index = 0; index < count; index += 1) {
+      await palette.locator(`[data-tile-code="${tile}"]`).click();
+    }
+  };
+  for (const tile of ['m1', 'm2', 'm3', 'p1', 'p2', 'p3', 's1', 's2', 's3']) {
+    await select(tile);
+  }
+  await select('east', 3);
+  await select('white');
+  await page.getByRole('button', { name: '选择胡牌张' }).click();
+  await select('white');
+
+  const context = page.getByRole('heading', { name: '和牌条件' }).locator('..');
+  await context.getByLabel('门风').selectOption({ label: '东风' });
+  await context.getByLabel('圈风').selectOption({ label: '南风' });
+  await page.getByRole('button', { name: '开始分析' }).click();
+  const testingConfirmation = page.getByRole('dialog', { name: '确认使用测试版规则' });
+  if (await testingConfirmation.isVisible()) {
+    await testingConfirmation.getByRole('button', { name: '确认并继续' }).click();
+  }
+
+  await expect(page.getByRole('heading', { name: '合法和牌' })).toBeVisible();
+  await expect(page.getByText('系统预设结果')).toBeVisible();
+  await expect(page.locator('.result-tile--winning').first()).toBeVisible();
+  await page.getByText('查看原始牌面').click();
+  await expect(page.getByLabel('原始牌面复核')).toBeVisible();
+  await page.getByText('查看完整计算过程').click();
+  await expect(page.getByRole('heading', { name: '3. 番型关系处理' })).toBeVisible();
+
+  await page.getByRole('button', { name: '临时调整本次规则' }).click();
+  const dialog = page.getByRole('dialog', { name: '临时规则调整' });
+  await expect(dialog.locator('[data-adjustment-id]')).toHaveCount(161);
+  await dialog.locator('[data-adjustment-id="minimumFan"]').fill('8');
+  await dialog.getByRole('button', { name: '应用本次规则' }).click();
+  await expect(
+    page.getByText('已保存本次规则调整，请重新分析以形成完整的本次规则结果。'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: '开始分析' }).click();
+  await expect(page.getByText('本次规则结果 · 本次规则已调整')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '结果层级' })).toBeVisible();
+
+  const countedPattern = page
+    .locator('.result-patterns li')
+    .filter({ has: page.getByRole('button', { name: '取消计入' }) })
+    .first();
+  await countedPattern.getByRole('button', { name: '取消计入' }).click();
+  await expect(page.getByText('用户调整结果 · 人工调整不改变基础合法性')).toBeVisible();
+  await expect(page.getByText(/用户调整合计/)).toBeVisible();
+  await page.getByRole('button', { name: '系统预设结果' }).click();
+  await expect(page.locator('.result-layer-label')).toHaveText('系统预设结果');
+  await expect(page.getByRole('button', { name: '保存牌例' })).toBeEnabled();
+  expect(consoleIssues).toEqual([]);
+});
+
+test('supports Batch 15A Quick Calc without formal result capabilities', async ({ page }) => {
+  const consoleIssues = collectConsoleIssues(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+
+  await page.getByRole('button', { name: '我已知道番型，只想快速合计' }).click();
+  await expect(page.getByRole('heading', { name: '快速算番' })).toBeVisible();
+  await expect(page.getByText('用户选择，未经牌面验证')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '主导航' }).getByText('快速算番')).toHaveCount(
+    0,
+  );
+
+  const quickContext = page.getByRole('heading', { name: '和牌条件' }).locator('..');
+  await quickContext.getByLabel('门风').selectOption({ label: '东风' });
+  await quickContext.getByLabel('圈风').selectOption({ label: '南风' });
+  await page.getByRole('checkbox', { name: /边张/ }).check();
+  await page.getByRole('checkbox', { name: /单钓将/ }).check();
+  await page.getByRole('button', { name: '计算用户所选番型' }).click();
+
+  const result = page.getByRole('heading', { name: '临时合计' }).locator('..');
+  await expect(result).toContainText('用户选择，未经牌面验证');
+  await expect(result).toContainText('边张：与已计入番型互斥');
+  await result.getByRole('button', { name: '复制文字' }).click();
+  const copyStatus = result.getByRole('status');
+  const copyFallback = result.getByRole('textbox', { name: /当前浏览器无法直接复制/ });
+  await expect(copyStatus.or(copyFallback)).toHaveCount(1);
+  if (await copyFallback.isVisible()) {
+    await expect(copyFallback).toHaveValue(/快速算番（用户选择，未经牌面验证）/);
+  } else {
+    await expect(copyStatus).toHaveText('已复制快速算番文字。');
+  }
+  await expect(result.getByRole('button', { name: '保存牌例' })).toHaveCount(0);
+  await expect(result.getByRole('button', { name: '分享链接' })).toHaveCount(0);
+  await expect(result.getByRole('button', { name: /听牌|拆分/ })).toHaveCount(0);
+
+  await page.getByRole('button', { name: '返回牌面计算' }).click();
+  await expect(page.getByRole('heading', { name: '选牌器' })).toBeVisible();
+  expect(consoleIssues).toEqual([]);
+});
+
 test('restores a reasonable Calculator scroll position after module navigation', async ({
   page,
 }) => {

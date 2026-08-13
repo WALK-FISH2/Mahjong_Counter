@@ -43,6 +43,10 @@ import { RulePickerDialog } from '../../features/rule-switch/RulePickerDialog';
 import { RuleSwitchDialog } from '../../features/rule-switch/RuleSwitchDialog';
 import { TestingRuleConfirmationDialog } from '../../features/rule-switch/TestingRuleConfirmationDialog';
 import { navigationStore } from '../../app/routes/navigation-store';
+import { getResultActionPolicy } from '../../application/calculator/result-action-policy';
+import { AnalysisResult } from '../../features/analysis-result/AnalysisResult';
+import { TemporaryRuleAdjustmentDialog } from '../../features/rule-adjustment/TemporaryRuleAdjustmentDialog';
+import { QuickCalcPanel } from '../../features/quick-calc/QuickCalcPanel';
 
 export type CalculatorPageProps = Readonly<{
   store?: CalculatorStore | undefined;
@@ -113,6 +117,10 @@ function rejectionMessage(reasonCode: CalculatorInputRejection): string {
       return '当前分析引擎尚未就绪。';
     case 'ANALYSIS_FAILED':
       return '本次分析失败，请检查牌面后重试。';
+    case 'TEMPORARY_ADJUSTMENT_INVALID':
+      return '本次规则调整不符合当前规则声明。';
+    case 'FAN_ADJUSTMENT_INVALID':
+      return '只能调整当前方案中已经识别且允许操作的番型。';
   }
 }
 
@@ -120,6 +128,21 @@ type LoadedCalculatorPageProps = Readonly<{
   store: CalculatorStore;
   runtime?: CalculatorRuntime | undefined;
 }>;
+
+function QuickCalcEntry({ onOpen }: Readonly<{ onOpen: () => void }>) {
+  return (
+    <section className="quick-calc-entry" aria-labelledby="quick-calc-entry-title">
+      <div>
+        <p className="section-kicker">次级工具</p>
+        <h2 id="quick-calc-entry-title">已经知道番型？</h2>
+        <p>无需录入牌面，按当前规则临时合计；结果不会验证实际手牌。</p>
+      </div>
+      <button type="button" className="secondary-action" onClick={onOpen}>
+        我已知道番型，只想快速合计
+      </button>
+    </section>
+  );
+}
 
 function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const outletContext = useOutletContext<{ restoreCalculatorScroll?: number } | null>();
@@ -137,6 +160,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
     'analysis' | 'rule-switch' | null
   >(null);
   const [replacementPrompt, setReplacementPrompt] = useState<ReplacementPrompt | null>(null);
+  const [showQuickCalc, setShowQuickCalc] = useState(false);
   const [onboarding, setOnboarding] = useState<OnboardingState>({
     showRuleNotice: false,
     showInputGuide: false,
@@ -148,6 +172,9 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const undoHand = useStore(store, (state) => state.undoHand);
   const analysisStatus = useStore(store, (state) => state.analysisStatus);
   const analysisResult = useStore(store, (state) => state.analysisResult);
+  const layeredEvaluation = useStore(store, (state) => state.layeredEvaluation);
+  const activeEvaluationLayer = useStore(store, (state) => state.activeEvaluationLayer);
+  const selectedAnalysisCandidateId = useStore(store, (state) => state.selectedAnalysisCandidateId);
   const analysisAvailable = useStore(store, (state) => state.analysisAvailable);
   const lastContextRemovals = useStore(store, (state) => state.lastContextRemovals);
   const addConcealedTile = useStore(store, (state) => state.addConcealedTile);
@@ -175,6 +202,15 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const clearCorrectionIssue = useStore(store, (state) => state.clearCorrectionIssue);
   const startAnalysis = useStore(store, (state) => state.startAnalysis);
   const cancelAnalysis = useStore(store, (state) => state.cancelAnalysis);
+  const selectAnalysisCandidate = useStore(store, (state) => state.selectAnalysisCandidate);
+  const applyTemporaryRuleAdjustment = useStore(
+    store,
+    (state) => state.applyTemporaryRuleAdjustment,
+  );
+  const restoreSystemPreset = useStore(store, (state) => state.restoreSystemPreset);
+  const setActiveEvaluationLayer = useStore(store, (state) => state.setActiveEvaluationLayer);
+  const applyFanAdjustment = useStore(store, (state) => state.applyFanAdjustment);
+  const clearFanAdjustment = useStore(store, (state) => state.clearFanAdjustment);
   const undoRuleSwitch = useStore(store, (state) => state.undoRuleSwitch);
   const ruleSwitchUndo = useStore(store, (state) => state.ruleSwitchUndo);
   const modalStack = useStore(navigationStore, (state) => state.modalStack);
@@ -441,7 +477,23 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
         </p>
       )}
 
-      <div className="calculator-layout" data-testid="calculator-layout">
+      {runtime !== undefined &&
+        (showQuickCalc ? (
+          <QuickCalcPanel
+            key={`${rulePackage.manifest.ruleId}@${rulePackage.manifest.ruleVersion}`}
+            rulePackage={rulePackage}
+            evaluate={runtime.quickCalcEvaluator}
+            onClose={() => setShowQuickCalc(false)}
+          />
+        ) : (
+          <QuickCalcEntry onOpen={() => setShowQuickCalc(true)} />
+        ))}
+
+      <div
+        className="calculator-layout"
+        data-testid="calculator-layout"
+        hidden={showQuickCalc && runtime !== undefined}
+      >
         <div className="calculator-layout__input">
           <TilePalette
             tileSet={rulePackage.tileSet}
@@ -577,52 +629,89 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
           >
             <p className="section-kicker">当前状态</p>
             <h2 id="analysis-title">分析结果</h2>
-            <p>
-              {analysisStatus === 'analyzing'
-                ? '正在分析当前牌面…'
-                : analysisResult === null
-                  ? '尚未开始分析'
-                  : '分析已完成；正式结果内容将在后续结果任务中展示。'}
-            </p>
+            {analysisStatus === 'analyzing' ? (
+              <p role="status">正在分析当前牌面…</p>
+            ) : analysisResult === null ? (
+              <p>尚未开始分析</p>
+            ) : (
+              <AnalysisResult
+                result={analysisResult}
+                selectedCandidateId={selectedAnalysisCandidateId}
+                rulePackage={rulePackage}
+                originalHand={document.hand}
+                onSelectCandidate={selectAnalysisCandidate}
+                onOpenAdjustments={() => openModal('temporary-rule-adjustment')}
+                activeLayer={activeEvaluationLayer}
+                availableLayers={
+                  layeredEvaluation === null
+                    ? ['preset']
+                    : [
+                        'preset',
+                        ...(layeredEvaluation.sessionRule === undefined
+                          ? []
+                          : (['session-rule'] as const)),
+                        ...(layeredEvaluation.userAdjustment === undefined
+                          ? []
+                          : (['user-adjustment'] as const)),
+                      ]
+                }
+                userAdjustedResult={layeredEvaluation?.userAdjustment?.result ?? null}
+                actionPolicy={getResultActionPolicy(analysisResult.status)}
+                onSelectLayer={setActiveEvaluationLayer}
+                onApplyFanAdjustment={(patternId, action) => {
+                  applyResult(
+                    applyFanAdjustment(patternId, action),
+                    action === 'exclude'
+                      ? '已在用户调整结果中取消计入该番型；基础合法性保持不变。'
+                      : '已在用户调整结果中强制计入该番型；基础合法性保持不变。',
+                  );
+                }}
+                onClearFanAdjustment={(patternId) => {
+                  if (clearFanAdjustment(patternId)) setInputNotice('已清除该番型人工调整。');
+                }}
+              />
+            )}
           </section>
         </div>
       </div>
 
-      <AnalyzeActionBar
-        status={calculatorStatus}
-        hasWinningTile={document.hand.winningTile !== null}
-        onAnalyze={() => {
-          void (async () => {
-            if (runtime !== undefined && rulePackage.manifest.status === 'test') {
-              const entry = (await runtime.ruleRepository.listRuleCatalog()).find(
-                ({ manifest }) =>
-                  manifest.ruleId === rulePackage.manifest.ruleId &&
-                  manifest.ruleVersion === rulePackage.manifest.ruleVersion,
-              );
-              if (
-                entry !== undefined &&
-                (await requiresTestingRuleConfirmation(
-                  runtime.preferencesPort,
-                  entry.manifest,
-                  entry.resultImpactVersion,
-                ))
-              ) {
-                setPendingTestingRule(entry);
-                setPendingTestingAction('analysis');
-                openModal('testing-rule-confirmation');
-                return;
+      {!(showQuickCalc && runtime !== undefined) && (
+        <AnalyzeActionBar
+          status={calculatorStatus}
+          hasWinningTile={document.hand.winningTile !== null}
+          onAnalyze={() => {
+            void (async () => {
+              if (runtime !== undefined && rulePackage.manifest.status === 'test') {
+                const entry = (await runtime.ruleRepository.listRuleCatalog()).find(
+                  ({ manifest }) =>
+                    manifest.ruleId === rulePackage.manifest.ruleId &&
+                    manifest.ruleVersion === rulePackage.manifest.ruleVersion,
+                );
+                if (
+                  entry !== undefined &&
+                  (await requiresTestingRuleConfirmation(
+                    runtime.preferencesPort,
+                    entry.manifest,
+                    entry.resultImpactVersion,
+                  ))
+                ) {
+                  setPendingTestingRule(entry);
+                  setPendingTestingAction('analysis');
+                  openModal('testing-rule-confirmation');
+                  return;
+                }
               }
-            }
-            const result = await startAnalysis();
-            if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
-          })();
-        }}
-        onCancel={cancelAnalysis}
-        onViewResult={() => {
-          analysisSectionRef.current?.scrollIntoView({ block: 'center' });
-          analysisSectionRef.current?.focus();
-        }}
-      />
+              const result = await startAnalysis();
+              if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
+            })();
+          }}
+          onCancel={cancelAnalysis}
+          onViewResult={() => {
+            analysisSectionRef.current?.scrollIntoView({ block: 'center' });
+            analysisSectionRef.current?.focus();
+          }}
+        />
+      )}
 
       {pendingChowAction !== null && (
         <IncompleteChowGuard
@@ -729,6 +818,31 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
             </div>
           </section>
         </div>
+      )}
+
+      {activeModal === 'temporary-rule-adjustment' && (
+        <TemporaryRuleAdjustmentDialog
+          rulePackage={rulePackage}
+          currentValues={document.temporaryRuleAdjustment?.values ?? {}}
+          onApply={(values) => {
+            if (
+              applyResult(
+                applyTemporaryRuleAdjustment(values),
+                values !== null && Object.keys(values).length > 0
+                  ? '已保存本次规则调整，请重新分析以形成完整的本次规则结果。'
+                  : '当前使用系统预设规则。',
+              )
+            ) {
+              closeActiveModal();
+            }
+          }}
+          onRestore={() => {
+            restoreSystemPreset();
+            setInputNotice('已恢复系统预设规则。');
+            closeActiveModal();
+          }}
+          onClose={closeActiveModal}
+        />
       )}
     </article>
   );

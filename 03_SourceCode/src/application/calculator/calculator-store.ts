@@ -39,15 +39,29 @@ import {
   type WinContext,
   type WinMode,
 } from '../../domain/mahjong';
+import { buildEffectiveRule } from '../../domain/rules/effective-rule';
 import {
   getMissingRequiredContextIds,
   isContextDefinitionApplicable,
 } from '../../domain/engine/legality';
 import { enumerateWinningDecompositions } from '../../domain/engine/structure';
 import type { SystemEvaluation } from '../../domain/engine/evaluation';
+import {
+  applyFanAdjustments,
+  createFanAdjustment,
+  inspectFanAdjustments,
+  type EvaluationLayer,
+  type LayeredEvaluation,
+} from '../../domain/engine/adjustment';
+import type {
+  ExtraScoringCalculatorRegistry,
+  ScoringStrategyRegistry,
+} from '../../domain/engine/scoring';
+import type { FanAdjustment } from '../../domain/mahjong/calculator-document';
 import type { ContextDefinition } from '../../domain/rules/context-definition';
 import type { RuleMeldType } from '../../domain/rules/hand-model';
 import type { RulePackageDefinition } from '../../domain/rules/rule-package';
+import type { TemporaryAdjustmentValues } from '../../domain/rules/temporary-adjustment-definition';
 
 export type ConcealedSortMode = 'input-order' | 'tile-order';
 export type CalculatorTransientInputKind = Exclude<TransientInputSession['kind'], 'none'>;
@@ -69,7 +83,9 @@ export type CalculatorInputRejection =
   | 'CONTEXT_VALUE_INVALID'
   | 'ANALYSIS_NOT_READY'
   | 'ANALYSIS_UNAVAILABLE'
-  | 'ANALYSIS_FAILED';
+  | 'ANALYSIS_FAILED'
+  | 'TEMPORARY_ADJUSTMENT_INVALID'
+  | 'FAN_ADJUSTMENT_INVALID';
 
 export type CalculatorInputResult =
   | Readonly<{ accepted: true }>
@@ -145,6 +161,11 @@ export type CalculatorEvaluator = (
   rulePackage: RulePackageDefinition,
 ) => Promise<SystemEvaluation> | SystemEvaluation;
 
+export type CalculatorEvaluationCapabilities = Readonly<{
+  scoringStrategies: ScoringStrategyRegistry;
+  extraScoringCalculators: ExtraScoringCalculatorRegistry;
+}>;
+
 export type CalculatorState = Readonly<{
   document: CalculatorDocument;
   rulePackage: RulePackageDefinition;
@@ -154,6 +175,9 @@ export type CalculatorState = Readonly<{
   undoHand: HandSnapshot | null;
   analysisStatus: 'idle' | 'analyzing' | 'completed';
   analysisResult: SystemEvaluation | null;
+  layeredEvaluation: LayeredEvaluation | null;
+  activeEvaluationLayer: EvaluationLayer;
+  selectedAnalysisCandidateId: string | null;
   analysisAvailable: boolean;
   lastContextRemovals: readonly ContextRemoval[];
   contextBeforeModeChange: WinContext | null;
@@ -182,6 +206,12 @@ export type CalculatorState = Readonly<{
   clearCorrectionIssue: (issueId: string) => boolean;
   startAnalysis: () => Promise<CalculatorInputResult>;
   cancelAnalysis: () => boolean;
+  selectAnalysisCandidate: (candidateId: string) => boolean;
+  applyTemporaryRuleAdjustment: (values: TemporaryAdjustmentValues) => CalculatorInputResult;
+  restoreSystemPreset: () => boolean;
+  setActiveEvaluationLayer: (layer: EvaluationLayer) => boolean;
+  applyFanAdjustment: (patternId: string, action: FanAdjustment['action']) => CalculatorInputResult;
+  clearFanAdjustment: (patternId: string) => boolean;
   replaceCalculator: (
     rulePackage: RulePackageDefinition,
     document: CalculatorDocument,
@@ -630,6 +660,7 @@ export function createCalculatorStore(
   rulePackage: RulePackageDefinition,
   initialDocument: CalculatorDocument = createInitialCalculatorDocument(rulePackage),
   evaluator?: CalculatorEvaluator,
+  evaluationCapabilities?: CalculatorEvaluationCapabilities,
 ): CalculatorStore {
   if (
     initialDocument.ruleRef.ruleId !== rulePackage.manifest.ruleId ||
@@ -640,15 +671,19 @@ export function createCalculatorStore(
 
   return createAppStore<CalculatorState>((set, get) => {
     const commitHand = (current: CalculatorState, hand: HandSnapshot): void => {
+      const nextDocument = reviseCalculatorDocument(current.document, {
+        hand,
+        transientInput: NO_TRANSIENT_INPUT,
+      });
       set({
-        document: reviseCalculatorDocument(current.document, {
-          hand,
-          transientInput: NO_TRANSIENT_INPUT,
-        }),
+        document: nextDocument,
         editingMeldId: null,
         undoHand: current.document.hand,
         analysisStatus: 'idle',
         analysisResult: null,
+        layeredEvaluation: null,
+        activeEvaluationLayer: 'preset',
+        selectedAnalysisCandidateId: null,
       });
     };
 
@@ -688,6 +723,9 @@ export function createCalculatorStore(
       undoHand: null,
       analysisStatus: 'idle',
       analysisResult: null,
+      layeredEvaluation: null,
+      activeEvaluationLayer: 'preset',
+      selectedAnalysisCandidateId: null,
       analysisAvailable: evaluator !== undefined,
       lastContextRemovals: Object.freeze([]),
       contextBeforeModeChange: null,
@@ -1038,6 +1076,9 @@ export function createCalculatorStore(
           undoHand: null,
           analysisStatus: 'idle',
           analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
         });
         return true;
       },
@@ -1053,6 +1094,9 @@ export function createCalculatorStore(
           contextBeforeModeChange: removals.length > 0 ? current.document.context : null,
           analysisStatus: 'idle',
           analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
         });
         return removals;
       },
@@ -1085,6 +1129,9 @@ export function createCalculatorStore(
           contextBeforeModeChange: null,
           analysisStatus: 'idle',
           analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
         });
         return ACCEPTED_INPUT;
       },
@@ -1101,6 +1148,9 @@ export function createCalculatorStore(
           contextBeforeModeChange: null,
           analysisStatus: 'idle',
           analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
         });
         return true;
       },
@@ -1117,6 +1167,9 @@ export function createCalculatorStore(
           contextBeforeModeChange: null,
           analysisStatus: 'idle',
           analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
         });
         return true;
       },
@@ -1164,6 +1217,9 @@ export function createCalculatorStore(
           undoHand: current.document.hand,
           analysisStatus: 'idle',
           analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
         });
         return true;
       },
@@ -1173,10 +1229,27 @@ export function createCalculatorStore(
         if (evaluator === undefined) return rejectedInput('ANALYSIS_UNAVAILABLE');
         if (!status.canAnalyze) return rejectedInput('ANALYSIS_NOT_READY');
         const revision = current.document.revision;
-        set({ analysisStatus: 'analyzing', analysisResult: null });
-        let result: SystemEvaluation;
+        set({
+          analysisStatus: 'analyzing',
+          analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
+        });
+        let preset: SystemEvaluation;
+        let sessionRule: LayeredEvaluation['sessionRule'];
         try {
-          result = await evaluator(current.document, current.rulePackage);
+          preset = await evaluator(current.document, current.rulePackage);
+          if (current.document.temporaryRuleAdjustment !== null) {
+            const effectiveRule = buildEffectiveRule(
+              current.rulePackage,
+              current.document.temporaryRuleAdjustment,
+            );
+            sessionRule = Object.freeze({
+              adjustment: current.document.temporaryRuleAdjustment,
+              evaluation: await evaluator(current.document, effectiveRule),
+            });
+          }
         } catch {
           if (get().document.revision === revision && get().analysisStatus === 'analyzing') {
             set({ analysisStatus: 'idle', analysisResult: null });
@@ -1186,13 +1259,216 @@ export function createCalculatorStore(
         if (get().document.revision !== revision || get().analysisStatus !== 'analyzing') {
           return ACCEPTED_INPUT;
         }
-        set({ analysisStatus: 'completed', analysisResult: result });
+        let layeredEvaluation: LayeredEvaluation = Object.freeze({
+          preset,
+          ...(sessionRule === undefined ? {} : { sessionRule }),
+        });
+        const displayed = sessionRule?.evaluation ?? preset;
+        if (current.document.fanAdjustments.length > 0 && evaluationCapabilities !== undefined) {
+          const candidate =
+            displayed.candidates.find(
+              ({ candidateId }) => candidateId === displayed.selectedCandidateId,
+            ) ?? displayed.candidates[0];
+          if (candidate !== undefined) {
+            const effectiveRule = buildEffectiveRule(
+              current.rulePackage,
+              current.document.temporaryRuleAdjustment,
+            );
+            const result = applyFanAdjustments({
+              baseEvaluationStatus: displayed.status,
+              candidate,
+              adjustments: current.document.fanAdjustments,
+              hand: current.document.hand,
+              context: current.document.context,
+              rule: effectiveRule,
+              scoringStrategies: evaluationCapabilities.scoringStrategies,
+              extraScoringCalculators: evaluationCapabilities.extraScoringCalculators,
+            });
+            layeredEvaluation = Object.freeze({
+              ...layeredEvaluation,
+              userAdjustment: Object.freeze({
+                baseLayer: sessionRule === undefined ? 'preset' : 'session-rule',
+                adjustments: current.document.fanAdjustments,
+                result,
+              }),
+            });
+          }
+        }
+        set({
+          analysisStatus: 'completed',
+          analysisResult: displayed,
+          layeredEvaluation,
+          activeEvaluationLayer:
+            layeredEvaluation.userAdjustment === undefined
+              ? sessionRule === undefined
+                ? 'preset'
+                : 'session-rule'
+              : 'user-adjustment',
+          selectedAnalysisCandidateId: displayed.selectedCandidateId,
+        });
         return ACCEPTED_INPUT;
       },
       cancelAnalysis: () => {
         const current = get();
         if (current.analysisStatus !== 'analyzing') return false;
         set({ analysisStatus: 'idle', analysisResult: null });
+        return true;
+      },
+      selectAnalysisCandidate: (candidateId) => {
+        const current = get();
+        if (
+          current.analysisResult?.status !== 'legal-win' ||
+          !current.analysisResult.highestLegalCandidateIds.includes(candidateId)
+        ) {
+          return false;
+        }
+        set({ selectedAnalysisCandidateId: candidateId });
+        return true;
+      },
+      applyTemporaryRuleAdjustment: (values) => {
+        const current = get();
+        const adjustment = Object.freeze({
+          baseRuleRef: current.document.ruleRef,
+          values: Object.freeze({ ...values }),
+        });
+        try {
+          buildEffectiveRule(current.rulePackage, adjustment);
+        } catch {
+          return rejectedInput('TEMPORARY_ADJUSTMENT_INVALID');
+        }
+        set({
+          document: reviseCalculatorDocument(current.document, {
+            temporaryRuleAdjustment: Object.keys(values).length === 0 ? null : adjustment,
+          }),
+          analysisStatus: 'idle',
+          analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
+        });
+        return ACCEPTED_INPUT;
+      },
+      restoreSystemPreset: () => {
+        const current = get();
+        if (current.document.temporaryRuleAdjustment === null) return false;
+        set({
+          document: reviseCalculatorDocument(current.document, {
+            temporaryRuleAdjustment: null,
+          }),
+          analysisStatus: 'idle',
+          analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
+        });
+        return true;
+      },
+      setActiveEvaluationLayer: (layer) => {
+        const current = get();
+        const layered = current.layeredEvaluation;
+        if (layered === null) return false;
+        if (layer === 'session-rule' && layered.sessionRule === undefined) return false;
+        if (layer === 'user-adjustment' && layered.userAdjustment === undefined) return false;
+        const evaluation =
+          layer === 'preset' ? layered.preset : (layered.sessionRule?.evaluation ?? layered.preset);
+        set({
+          activeEvaluationLayer: layer,
+          analysisResult: evaluation,
+          selectedAnalysisCandidateId: evaluation.selectedCandidateId,
+        });
+        return true;
+      },
+      applyFanAdjustment: (patternId, action) => {
+        const current = get();
+        const layered = current.layeredEvaluation;
+        if (layered === null || evaluationCapabilities === undefined) {
+          return rejectedInput('ANALYSIS_NOT_READY');
+        }
+        const baseLayer = layered.sessionRule === undefined ? 'preset' : 'session-rule';
+        const baseEvaluation =
+          baseLayer === 'session-rule' ? layered.sessionRule!.evaluation : layered.preset;
+        const candidate =
+          baseEvaluation.candidates.find(
+            ({ candidateId }) => candidateId === current.selectedAnalysisCandidateId,
+          ) ?? baseEvaluation.candidates[0];
+        if (candidate === undefined) return rejectedInput('ANALYSIS_NOT_READY');
+        const adjustment = createFanAdjustment(candidate, patternId, action);
+        if (adjustment === null) return rejectedInput('FAN_ADJUSTMENT_INVALID');
+        const adjustments = Object.freeze([
+          ...current.document.fanAdjustments.filter((item) => item.patternId !== patternId),
+          adjustment,
+        ]);
+        const effectiveRule = buildEffectiveRule(
+          current.rulePackage,
+          current.document.temporaryRuleAdjustment,
+        );
+        const adjustmentStates = inspectFanAdjustments(candidate, adjustments);
+        if (adjustmentStates.some(({ status }) => status === 'stale')) {
+          return rejectedInput('FAN_ADJUSTMENT_INVALID');
+        }
+        const result = applyFanAdjustments({
+          baseEvaluationStatus: baseEvaluation.status,
+          candidate,
+          adjustments,
+          hand: current.document.hand,
+          context: current.document.context,
+          rule: effectiveRule,
+          scoringStrategies: evaluationCapabilities.scoringStrategies,
+          extraScoringCalculators: evaluationCapabilities.extraScoringCalculators,
+        });
+        set({
+          document: reviseCalculatorDocument(current.document, { fanAdjustments: adjustments }),
+          layeredEvaluation: Object.freeze({
+            ...layered,
+            userAdjustment: Object.freeze({ baseLayer, adjustments, result }),
+          }),
+          activeEvaluationLayer: 'user-adjustment',
+        });
+        return ACCEPTED_INPUT;
+      },
+      clearFanAdjustment: (patternId) => {
+        const current = get();
+        if (!current.document.fanAdjustments.some((item) => item.patternId === patternId)) {
+          return false;
+        }
+        const adjustments = Object.freeze(
+          current.document.fanAdjustments.filter((item) => item.patternId !== patternId),
+        );
+        const layered = current.layeredEvaluation;
+        if (layered === null || evaluationCapabilities === undefined) return false;
+        const baseLayer = layered.sessionRule === undefined ? 'preset' : 'session-rule';
+        const baseEvaluation =
+          baseLayer === 'session-rule' ? layered.sessionRule!.evaluation : layered.preset;
+        const candidate =
+          baseEvaluation.candidates.find(
+            ({ candidateId }) => candidateId === current.selectedAnalysisCandidateId,
+          ) ?? baseEvaluation.candidates[0];
+        if (candidate === undefined) return false;
+        const result = applyFanAdjustments({
+          baseEvaluationStatus: baseEvaluation.status,
+          candidate,
+          adjustments,
+          hand: current.document.hand,
+          context: current.document.context,
+          rule: buildEffectiveRule(current.rulePackage, current.document.temporaryRuleAdjustment),
+          scoringStrategies: evaluationCapabilities.scoringStrategies,
+          extraScoringCalculators: evaluationCapabilities.extraScoringCalculators,
+        });
+        const nextLayered: LayeredEvaluation =
+          adjustments.length === 0
+            ? Object.freeze({
+                preset: layered.preset,
+                ...(layered.sessionRule === undefined ? {} : { sessionRule: layered.sessionRule }),
+              })
+            : Object.freeze({
+                ...layered,
+                userAdjustment: Object.freeze({ baseLayer, adjustments, result }),
+              });
+        set({
+          document: reviseCalculatorDocument(current.document, { fanAdjustments: adjustments }),
+          layeredEvaluation: nextLayered,
+          activeEvaluationLayer: adjustments.length === 0 ? baseLayer : 'user-adjustment',
+        });
         return true;
       },
       replaceCalculator: (nextRulePackage, nextDocument, recordRuleSwitchUndo = false) => {
@@ -1217,6 +1493,9 @@ export function createCalculatorStore(
           undoHand: null,
           analysisStatus: 'idle',
           analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
           lastContextRemovals: Object.freeze([]),
           contextBeforeModeChange: null,
         });
@@ -1233,6 +1512,9 @@ export function createCalculatorStore(
           undoHand: null,
           analysisStatus: 'idle',
           analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
           lastContextRemovals: Object.freeze([]),
           contextBeforeModeChange: null,
         });

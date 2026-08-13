@@ -209,4 +209,42 @@ describe('Cap / Extra scoring', () => {
     expect(score.base).toMatchObject({ total: 0, items: [] });
     expect(score.total).toBe(3);
   });
+
+  it('accepts a validated occurrence override for hand-unverified scoring flows', () => {
+    const score = applyCapAndExtras(
+      {
+        ...base,
+        total: 1,
+        items: [
+          { patternId: 'flowerTiles', occurrences: 1, unitValue: 1, subtotal: 1, unit: 'fan' },
+        ],
+      },
+      {
+        strategyKey: 'scoring.additive',
+        unit: 'fan',
+        parameters: {},
+        extras: [
+          {
+            extraId: 'flowers',
+            calculatorKey: 'scoring.extra.tile-group-count',
+            parameters: { patternId: 'flowerTiles', tileGroupId: 'flowers' },
+            mode: 'ADD',
+            value: 1,
+            capPlacement: 'before-cap',
+          },
+        ],
+      },
+      {
+        hand: createHandSnapshot(),
+        context: createWinContext(),
+        tileSet,
+        countedPatterns,
+        occurrenceOverrides: { flowerTiles: 1 },
+      },
+      registry,
+    );
+
+    expect(score.extrasBeforeCap[0]).toMatchObject({ occurrences: 1, subtotal: 1 });
+    expect(score.total).toBe(1);
+  });
 });

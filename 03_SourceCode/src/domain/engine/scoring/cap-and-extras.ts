@@ -11,6 +11,7 @@ export type ExtraScoringInput = Readonly<{
   context: WinContext;
   tileSet: TileSetDefinition;
   countedPatterns: readonly ResolvedPattern[];
+  occurrenceOverrides?: Readonly<Record<string, number>>;
 }>;
 
 export type ExtraScoringCalculator = Readonly<{
@@ -117,6 +118,10 @@ export const tileGroupCountExtraScoringCalculator: ExtraScoringCalculator = Obje
       throw new RangeError(
         `Extra ${definition.extraId} references unknown tile group ${tileGroupId}.`,
       );
+    }
+    const occurrenceOverride = input.occurrenceOverrides?.[patternId];
+    if (occurrenceOverride !== undefined) {
+      return occurrenceOverride;
     }
     const counts = countHandTilesByCode(input.hand);
     return group.tiles.reduce((total, tile) => total + (counts[tile] ?? 0), 0);
