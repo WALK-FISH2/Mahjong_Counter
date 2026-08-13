@@ -434,6 +434,37 @@ summary:focus-visible {
   grid-template-columns: repeat(auto-fill, minmax(2.75rem, 3rem));
 }
 
+.entered-tile-stack {
+  position: relative;
+  display: inline-grid;
+}
+
+.discard-candidate-marker {
+  position: absolute;
+  z-index: 1;
+  top: -0.75rem;
+  left: 50%;
+  width: 1.5rem;
+  min-height: 1.2rem;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 0;
+  color: #a24c24;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.discard-candidate-marker[aria-pressed='true'] {
+  color: var(--color-accent);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 25%));
+}
+
+.entered-tile-stack:has(.discard-candidate-marker) {
+  margin-top: 0.75rem;
+}
+
 .tile-button--entered::after {
   position: absolute;
   top: 0.08rem;
@@ -913,6 +944,87 @@ summary:focus-visible {
 .analysis-result {
   display: grid;
   gap: 1rem;
+}
+
+.ready-analysis,
+.ready-wait-groups {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.ready-discard-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ready-discard-options [aria-pressed='true'] {
+  border-color: var(--color-accent);
+  color: #fff;
+  background: var(--color-accent);
+}
+
+.ready-primary-mode {
+  margin: 0;
+  padding: 0.55rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface-soft);
+}
+
+.ready-wait-list,
+.ready-compact-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ready-wait-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.55rem;
+}
+
+.ready-wait-card p,
+.ready-wait-card small {
+  display: block;
+  margin: 0.15rem 0 0;
+}
+
+.ready-compact-list li {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  padding: 0.45rem;
+  border-radius: 0.45rem;
+  background: var(--color-surface-soft);
+}
+
+.ready-compact-list .tile-face {
+  font-size: 1.55rem;
+}
+
+.ready-mode-differences summary {
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.ready-candidate-switcher {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.ready-candidate-switcher select {
+  max-width: 100%;
+  min-height: 2rem;
 }
 
 .analysis-result > h3,

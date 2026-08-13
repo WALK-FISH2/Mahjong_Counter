@@ -1,4 +1,5 @@
 import type { RuleRef } from '../../domain/mahjong/calculator-document';
+import type { WaitSortMode } from '../ready-analysis';
 
 export type TestingRuleConfirmation = Readonly<{
   ruleRef: RuleRef;
@@ -10,6 +11,7 @@ export type CalculatorPreferences = Readonly<{
   recentRuleRefs: readonly RuleRef[];
   ruleNoticeSeen: boolean;
   inputGuideSeen: boolean;
+  waitSortMode: WaitSortMode;
   testingRuleConfirmations: Readonly<Record<string, TestingRuleConfirmation>>;
 }>;
 
@@ -23,6 +25,7 @@ export const DEFAULT_CALCULATOR_PREFERENCES: CalculatorPreferences = Object.free
   recentRuleRefs: Object.freeze([]),
   ruleNoticeSeen: false,
   inputGuideSeen: false,
+  waitSortMode: 'highest-score',
   testingRuleConfirmations: Object.freeze({}),
 });
 
@@ -38,6 +41,7 @@ export function cloneCalculatorPreferences(
     recentRuleRefs: Object.freeze(preferences.recentRuleRefs.map(cloneRuleRef)),
     ruleNoticeSeen: preferences.ruleNoticeSeen,
     inputGuideSeen: preferences.inputGuideSeen,
+    waitSortMode: preferences.waitSortMode,
     testingRuleConfirmations: Object.freeze(
       Object.fromEntries(
         Object.entries(preferences.testingRuleConfirmations).map(([key, confirmation]) => [
@@ -126,4 +130,11 @@ export function replayOnboarding(port: CalculatorPreferencesPort): Promise<Calcu
     ruleNoticeSeen: false,
     inputGuideSeen: false,
   }));
+}
+
+export function setWaitSortMode(
+  port: CalculatorPreferencesPort,
+  waitSortMode: WaitSortMode,
+): Promise<CalculatorPreferences> {
+  return updateCalculatorPreferences(port, (current) => ({ ...current, waitSortMode }));
 }

@@ -7,6 +7,10 @@ import {
   EngineWorkerClient,
 } from '../../application/engine-worker';
 import {
+  createReadyAnalysisService,
+  type ReadyAnalysisService,
+} from '../../application/ready-analysis';
+import {
   InMemoryCalculatorDraftPort,
   createCalculatorReplaceGuard,
 } from '../../application/calculator/replace-calculator';
@@ -36,6 +40,7 @@ export type CalculatorRuntime = Readonly<{
   ruleRepository: BuiltInRuleRepository;
   preferencesPort: InMemoryCalculatorPreferencesPort;
   replaceGuard: ReturnType<typeof createCalculatorReplaceGuard>;
+  readyAnalysisService: ReadyAnalysisService;
 }>;
 
 let calculatorRuntimePromise: Promise<CalculatorRuntime> | undefined;
@@ -69,6 +74,11 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
       ruleRepository,
       preferencesPort,
       replaceGuard: createCalculatorReplaceGuard(store, draftPort),
+      readyAnalysisService: createReadyAnalysisService({
+        client: engineWorkerClient,
+        engineVersion: ENGINE_VERSION,
+        getCurrentDocumentRevision: () => storeRef.current?.getState().document.revision ?? 0,
+      }),
     });
   })();
 

@@ -47,6 +47,12 @@ import { getResultActionPolicy } from '../../application/calculator/result-actio
 import { AnalysisResult } from '../../features/analysis-result/AnalysisResult';
 import { TemporaryRuleAdjustmentDialog } from '../../features/rule-adjustment/TemporaryRuleAdjustmentDialog';
 import { QuickCalcPanel } from '../../features/quick-calc/QuickCalcPanel';
+import { ReadyAnalysisPanel } from '../../features/ready-analysis/ReadyAnalysisPanel';
+import {
+  sortDiscardCandidates,
+  type ReadyAnalysisOutcome,
+  type WaitSortMode,
+} from '../../application/ready-analysis';
 
 export type CalculatorPageProps = Readonly<{
   store?: CalculatorStore | undefined;
@@ -147,6 +153,7 @@ function QuickCalcEntry({ onOpen }: Readonly<{ onOpen: () => void }>) {
 function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const outletContext = useOutletContext<{ restoreCalculatorScroll?: number } | null>();
   const analysisSectionRef = useRef<HTMLElement>(null);
+  const readyAnalysisRequestRef = useRef(0);
   const [inputNotice, setInputNotice] = useState<string | null>(null);
   const [selectingWinningTile, setSelectingWinningTile] = useState(false);
   const [pendingChowAction, setPendingChowAction] = useState<PendingChowAction | null>(null);
@@ -157,10 +164,17 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const [pendingRuleSwitch, setPendingRuleSwitch] = useState<RuleCatalogEntry | null>(null);
   const [pendingTestingRule, setPendingTestingRule] = useState<RuleCatalogEntry | null>(null);
   const [pendingTestingAction, setPendingTestingAction] = useState<
-    'analysis' | 'rule-switch' | null
+    'analysis' | 'ready-analysis' | 'rule-switch' | null
   >(null);
   const [replacementPrompt, setReplacementPrompt] = useState<ReplacementPrompt | null>(null);
   const [showQuickCalc, setShowQuickCalc] = useState(false);
+  const [readyAnalysisStatus, setReadyAnalysisStatus] = useState<
+    'idle' | 'analyzing' | 'result' | 'error'
+  >('idle');
+  const [readyAnalysisResult, setReadyAnalysisResult] = useState<ReadyAnalysisOutcome | null>(null);
+  const [readyAnalysisRevision, setReadyAnalysisRevision] = useState<number | null>(null);
+  const [selectedDiscardTile, setSelectedDiscardTile] = useState<TileCode | null>(null);
+  const [waitSortMode, setWaitSortMode] = useState<WaitSortMode>('highest-score');
   const [onboarding, setOnboarding] = useState<OnboardingState>({
     showRuleNotice: false,
     showInputGuide: false,
@@ -231,12 +245,26 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
     analysisResult,
     analysisAvailable,
   });
+  const readyAnalysisKind = runtime?.readyAnalysisService.getKind(document, rulePackage) ?? null;
+  const currentReadyAnalysisResult =
+    readyAnalysisResult?.documentRevision === document.revision ? readyAnalysisResult : null;
+  const currentReadyAnalysisStatus =
+    readyAnalysisRevision === document.revision ? readyAnalysisStatus : 'idle';
+  const discardCandidates =
+    currentReadyAnalysisResult?.kind === 'discard-to-ready'
+      ? currentReadyAnalysisResult.primary.candidates.map(({ discard }) => discard)
+      : [];
 
   useEffect(() => {
     if (runtime === undefined) return;
     let active = true;
-    void consumeOnboarding(runtime.preferencesPort).then((nextOnboarding) => {
-      if (active) setOnboarding(nextOnboarding);
+    void Promise.all([
+      consumeOnboarding(runtime.preferencesPort),
+      runtime.preferencesPort.read(),
+    ]).then(([nextOnboarding, preferences]) => {
+      if (!active) return;
+      setOnboarding(nextOnboarding);
+      setWaitSortMode(preferences.waitSortMode);
     });
     return () => {
       active = false;
@@ -424,6 +452,61 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
     applyResult(addConcealedTile(tile));
   };
 
+  const runReadyAnalysis = async (): Promise<void> => {
+    if (runtime === undefined) return;
+    const currentDocument = store.getState().document;
+    const currentRule = store.getState().rulePackage;
+    readyAnalysisRequestRef.current += 1;
+    const requestToken = readyAnalysisRequestRef.current;
+    setReadyAnalysisRevision(currentDocument.revision);
+    setReadyAnalysisStatus('analyzing');
+    try {
+      const outcome = await runtime.readyAnalysisService.analyze(currentDocument, currentRule);
+      if (readyAnalysisRequestRef.current !== requestToken) return;
+      setReadyAnalysisResult(outcome);
+      setReadyAnalysisStatus('result');
+      setSelectedDiscardTile(
+        outcome.kind === 'discard-to-ready'
+          ? (sortDiscardCandidates(outcome.primary.candidates, waitSortMode)[0]?.discard ?? null)
+          : null,
+      );
+    } catch {
+      if (
+        readyAnalysisRequestRef.current === requestToken &&
+        store.getState().document.revision === currentDocument.revision
+      ) {
+        setReadyAnalysisStatus('error');
+      }
+    }
+  };
+
+  const requestReadyAnalysis = (): void => {
+    if (runtime === undefined) return;
+    void (async () => {
+      if (rulePackage.manifest.status === 'test') {
+        const entry = (await runtime.ruleRepository.listRuleCatalog()).find(
+          ({ manifest }) =>
+            manifest.ruleId === rulePackage.manifest.ruleId &&
+            manifest.ruleVersion === rulePackage.manifest.ruleVersion,
+        );
+        if (
+          entry !== undefined &&
+          (await requiresTestingRuleConfirmation(
+            runtime.preferencesPort,
+            entry.manifest,
+            entry.resultImpactVersion,
+          ))
+        ) {
+          setPendingTestingRule(entry);
+          setPendingTestingAction('ready-analysis');
+          openModal('testing-rule-confirmation');
+          return;
+        }
+      }
+      await runReadyAnalysis();
+    })();
+  };
+
   const inputLabel = selectingWinningTile
     ? '当前录入到胡牌张'
     : document.transientInput.kind === 'none'
@@ -558,6 +641,8 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
             distinguishOpenKongKind={
               rulePackage.handModel.openKongPolicy.distinction === 'distinguished'
             }
+            discardCandidateTiles={discardCandidates}
+            selectedDiscardTile={selectedDiscardTile}
             canUpgradePung={(meld) =>
               meld.type === 'pung' &&
               rulePackage.handModel.openKongPolicy.allowedKinds.includes('added')
@@ -594,6 +679,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                 setInputNotice('已撤销上次牌面修改。');
               }
             }}
+            onSelectDiscardCandidate={setSelectedDiscardTile}
           />
         </div>
 
@@ -619,6 +705,21 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
             }}
             onValueClear={clearContextValue}
             onUndoModeChange={undoContextRemovals}
+          />
+
+          <ReadyAnalysisPanel
+            availableKind={readyAnalysisKind}
+            status={currentReadyAnalysisStatus}
+            result={currentReadyAnalysisResult}
+            sortMode={waitSortMode}
+            selectedDiscard={selectedDiscardTile}
+            onAnalyze={requestReadyAnalysis}
+            onCancel={() => {
+              readyAnalysisRequestRef.current += 1;
+              runtime?.readyAnalysisService.cancel();
+              setReadyAnalysisStatus('idle');
+            }}
+            onSelectDiscard={setSelectedDiscardTile}
           />
 
           <section
@@ -760,6 +861,10 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                   void startAnalysis().then((result) => {
                     if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
                   });
+                } else if (pendingTestingAction === 'ready-analysis') {
+                  setPendingTestingAction(null);
+                  closeActiveModal();
+                  void runReadyAnalysis();
                 } else {
                   setPendingTestingAction(null);
                   setShowRulePicker(false);

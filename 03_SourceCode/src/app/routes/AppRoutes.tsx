@@ -46,6 +46,7 @@ export function AppRoutes({
                   ? undefined
                   : () => replayOnboarding(calculatorRuntime.preferencesPort)
               }
+              preferencesPort={calculatorRuntime?.preferencesPort}
             />
           }
         />
