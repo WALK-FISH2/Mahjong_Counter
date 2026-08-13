@@ -43,6 +43,8 @@ import { RulePickerDialog } from '../../features/rule-switch/RulePickerDialog';
 import { RuleSwitchDialog } from '../../features/rule-switch/RuleSwitchDialog';
 import { TestingRuleConfirmationDialog } from '../../features/rule-switch/TestingRuleConfirmationDialog';
 import { navigationStore } from '../../app/routes/navigation-store';
+import { AnalysisResult } from '../../features/analysis-result/AnalysisResult';
+import { TemporaryRuleAdjustmentDialog } from '../../features/rule-adjustment/TemporaryRuleAdjustmentDialog';
 
 export type CalculatorPageProps = Readonly<{
   store?: CalculatorStore | undefined;
@@ -113,6 +115,8 @@ function rejectionMessage(reasonCode: CalculatorInputRejection): string {
       return '当前分析引擎尚未就绪。';
     case 'ANALYSIS_FAILED':
       return '本次分析失败，请检查牌面后重试。';
+    case 'TEMPORARY_ADJUSTMENT_INVALID':
+      return '本次规则调整不符合当前规则声明。';
   }
 }
 
@@ -148,6 +152,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const undoHand = useStore(store, (state) => state.undoHand);
   const analysisStatus = useStore(store, (state) => state.analysisStatus);
   const analysisResult = useStore(store, (state) => state.analysisResult);
+  const selectedAnalysisCandidateId = useStore(store, (state) => state.selectedAnalysisCandidateId);
   const analysisAvailable = useStore(store, (state) => state.analysisAvailable);
   const lastContextRemovals = useStore(store, (state) => state.lastContextRemovals);
   const addConcealedTile = useStore(store, (state) => state.addConcealedTile);
@@ -175,6 +180,12 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const clearCorrectionIssue = useStore(store, (state) => state.clearCorrectionIssue);
   const startAnalysis = useStore(store, (state) => state.startAnalysis);
   const cancelAnalysis = useStore(store, (state) => state.cancelAnalysis);
+  const selectAnalysisCandidate = useStore(store, (state) => state.selectAnalysisCandidate);
+  const applyTemporaryRuleAdjustment = useStore(
+    store,
+    (state) => state.applyTemporaryRuleAdjustment,
+  );
+  const restoreSystemPreset = useStore(store, (state) => state.restoreSystemPreset);
   const undoRuleSwitch = useStore(store, (state) => state.undoRuleSwitch);
   const ruleSwitchUndo = useStore(store, (state) => state.ruleSwitchUndo);
   const modalStack = useStore(navigationStore, (state) => state.modalStack);
@@ -577,13 +588,20 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
           >
             <p className="section-kicker">当前状态</p>
             <h2 id="analysis-title">分析结果</h2>
-            <p>
-              {analysisStatus === 'analyzing'
-                ? '正在分析当前牌面…'
-                : analysisResult === null
-                  ? '尚未开始分析'
-                  : '分析已完成；正式结果内容将在后续结果任务中展示。'}
-            </p>
+            {analysisStatus === 'analyzing' ? (
+              <p role="status">正在分析当前牌面…</p>
+            ) : analysisResult === null ? (
+              <p>尚未开始分析</p>
+            ) : (
+              <AnalysisResult
+                result={analysisResult}
+                selectedCandidateId={selectedAnalysisCandidateId}
+                rulePackage={rulePackage}
+                originalHand={document.hand}
+                onSelectCandidate={selectAnalysisCandidate}
+                onOpenAdjustments={() => openModal('temporary-rule-adjustment')}
+              />
+            )}
           </section>
         </div>
       </div>
@@ -729,6 +747,31 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
             </div>
           </section>
         </div>
+      )}
+
+      {activeModal === 'temporary-rule-adjustment' && (
+        <TemporaryRuleAdjustmentDialog
+          rulePackage={rulePackage}
+          currentValues={document.temporaryRuleAdjustment?.values ?? {}}
+          onApply={(values) => {
+            if (
+              applyResult(
+                applyTemporaryRuleAdjustment(values),
+                values !== null && Object.keys(values).length > 0
+                  ? '已保存本次规则调整。系统预设结果保持不变。'
+                  : '当前使用系统预设规则。',
+              )
+            ) {
+              closeActiveModal();
+            }
+          }}
+          onRestore={() => {
+            restoreSystemPreset();
+            setInputNotice('已恢复系统预设规则。');
+            closeActiveModal();
+          }}
+          onClose={closeActiveModal}
+        />
       )}
     </article>
   );

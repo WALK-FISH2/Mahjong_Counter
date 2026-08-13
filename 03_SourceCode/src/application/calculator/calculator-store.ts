@@ -39,6 +39,7 @@ import {
   type WinContext,
   type WinMode,
 } from '../../domain/mahjong';
+import { buildEffectiveRule } from '../../domain/rules/effective-rule';
 import {
   getMissingRequiredContextIds,
   isContextDefinitionApplicable,
@@ -48,6 +49,7 @@ import type { SystemEvaluation } from '../../domain/engine/evaluation';
 import type { ContextDefinition } from '../../domain/rules/context-definition';
 import type { RuleMeldType } from '../../domain/rules/hand-model';
 import type { RulePackageDefinition } from '../../domain/rules/rule-package';
+import type { TemporaryAdjustmentValues } from '../../domain/rules/temporary-adjustment-definition';
 
 export type ConcealedSortMode = 'input-order' | 'tile-order';
 export type CalculatorTransientInputKind = Exclude<TransientInputSession['kind'], 'none'>;
@@ -69,7 +71,8 @@ export type CalculatorInputRejection =
   | 'CONTEXT_VALUE_INVALID'
   | 'ANALYSIS_NOT_READY'
   | 'ANALYSIS_UNAVAILABLE'
-  | 'ANALYSIS_FAILED';
+  | 'ANALYSIS_FAILED'
+  | 'TEMPORARY_ADJUSTMENT_INVALID';
 
 export type CalculatorInputResult =
   | Readonly<{ accepted: true }>
@@ -154,6 +157,7 @@ export type CalculatorState = Readonly<{
   undoHand: HandSnapshot | null;
   analysisStatus: 'idle' | 'analyzing' | 'completed';
   analysisResult: SystemEvaluation | null;
+  selectedAnalysisCandidateId: string | null;
   analysisAvailable: boolean;
   lastContextRemovals: readonly ContextRemoval[];
   contextBeforeModeChange: WinContext | null;
@@ -182,6 +186,9 @@ export type CalculatorState = Readonly<{
   clearCorrectionIssue: (issueId: string) => boolean;
   startAnalysis: () => Promise<CalculatorInputResult>;
   cancelAnalysis: () => boolean;
+  selectAnalysisCandidate: (candidateId: string) => boolean;
+  applyTemporaryRuleAdjustment: (values: TemporaryAdjustmentValues) => CalculatorInputResult;
+  restoreSystemPreset: () => boolean;
   replaceCalculator: (
     rulePackage: RulePackageDefinition,
     document: CalculatorDocument,
@@ -688,6 +695,7 @@ export function createCalculatorStore(
       undoHand: null,
       analysisStatus: 'idle',
       analysisResult: null,
+      selectedAnalysisCandidateId: null,
       analysisAvailable: evaluator !== undefined,
       lastContextRemovals: Object.freeze([]),
       contextBeforeModeChange: null,
@@ -1173,7 +1181,11 @@ export function createCalculatorStore(
         if (evaluator === undefined) return rejectedInput('ANALYSIS_UNAVAILABLE');
         if (!status.canAnalyze) return rejectedInput('ANALYSIS_NOT_READY');
         const revision = current.document.revision;
-        set({ analysisStatus: 'analyzing', analysisResult: null });
+        set({
+          analysisStatus: 'analyzing',
+          analysisResult: null,
+          selectedAnalysisCandidateId: null,
+        });
         let result: SystemEvaluation;
         try {
           result = await evaluator(current.document, current.rulePackage);
@@ -1186,13 +1198,56 @@ export function createCalculatorStore(
         if (get().document.revision !== revision || get().analysisStatus !== 'analyzing') {
           return ACCEPTED_INPUT;
         }
-        set({ analysisStatus: 'completed', analysisResult: result });
+        set({
+          analysisStatus: 'completed',
+          analysisResult: result,
+          selectedAnalysisCandidateId: result.selectedCandidateId,
+        });
         return ACCEPTED_INPUT;
       },
       cancelAnalysis: () => {
         const current = get();
         if (current.analysisStatus !== 'analyzing') return false;
         set({ analysisStatus: 'idle', analysisResult: null });
+        return true;
+      },
+      selectAnalysisCandidate: (candidateId) => {
+        const current = get();
+        if (
+          current.analysisResult?.status !== 'legal-win' ||
+          !current.analysisResult.highestLegalCandidateIds.includes(candidateId)
+        ) {
+          return false;
+        }
+        set({ selectedAnalysisCandidateId: candidateId });
+        return true;
+      },
+      applyTemporaryRuleAdjustment: (values) => {
+        const current = get();
+        const adjustment = Object.freeze({
+          baseRuleRef: current.document.ruleRef,
+          values: Object.freeze({ ...values }),
+        });
+        try {
+          buildEffectiveRule(current.rulePackage, adjustment);
+        } catch {
+          return rejectedInput('TEMPORARY_ADJUSTMENT_INVALID');
+        }
+        set({
+          document: reviseCalculatorDocument(current.document, {
+            temporaryRuleAdjustment: Object.keys(values).length === 0 ? null : adjustment,
+          }),
+        });
+        return ACCEPTED_INPUT;
+      },
+      restoreSystemPreset: () => {
+        const current = get();
+        if (current.document.temporaryRuleAdjustment === null) return false;
+        set({
+          document: reviseCalculatorDocument(current.document, {
+            temporaryRuleAdjustment: null,
+          }),
+        });
         return true;
       },
       replaceCalculator: (nextRulePackage, nextDocument, recordRuleSwitchUndo = false) => {
@@ -1217,6 +1272,7 @@ export function createCalculatorStore(
           undoHand: null,
           analysisStatus: 'idle',
           analysisResult: null,
+          selectedAnalysisCandidateId: null,
           lastContextRemovals: Object.freeze([]),
           contextBeforeModeChange: null,
         });
@@ -1233,6 +1289,7 @@ export function createCalculatorStore(
           undoHand: null,
           analysisStatus: 'idle',
           analysisResult: null,
+          selectedAnalysisCandidateId: null,
           lastContextRemovals: Object.freeze([]),
           contextBeforeModeChange: null,
         });

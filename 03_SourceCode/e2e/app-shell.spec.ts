@@ -229,6 +229,58 @@ test('supports Batch 13A onboarding, rule picker, Replace Guard, and navigation 
   expect(consoleIssues).toEqual([]);
 });
 
+test('renders a Batch 14 formal result and rule-declared temporary adjustments', async ({
+  page,
+}) => {
+  const consoleIssues = collectConsoleIssues(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+
+  const onboarding = page.getByLabel('首次使用引导');
+  if (await onboarding.isVisible()) {
+    await onboarding.getByRole('button', { name: '知道了' }).click();
+  }
+  const palette = page.locator('.tile-palette');
+  const select = async (tile: string, count = 1) => {
+    for (let index = 0; index < count; index += 1) {
+      await palette.locator(`[data-tile-code="${tile}"]`).click();
+    }
+  };
+  for (const tile of ['m1', 'm2', 'm3', 'p1', 'p2', 'p3', 's1', 's2', 's3']) {
+    await select(tile);
+  }
+  await select('east', 3);
+  await select('white');
+  await page.getByRole('button', { name: '选择胡牌张' }).click();
+  await select('white');
+
+  const context = page.getByRole('heading', { name: '和牌条件' }).locator('..');
+  await context.getByLabel('门风').selectOption({ label: '东风' });
+  await context.getByLabel('圈风').selectOption({ label: '南风' });
+  await page.getByRole('button', { name: '开始分析' }).click();
+  const testingConfirmation = page.getByRole('dialog', { name: '确认使用测试版规则' });
+  if (await testingConfirmation.isVisible()) {
+    await testingConfirmation.getByRole('button', { name: '确认并继续' }).click();
+  }
+
+  await expect(page.getByRole('heading', { name: '合法和牌' })).toBeVisible();
+  await expect(page.getByText('系统预设结果')).toBeVisible();
+  await expect(page.locator('.result-tile--winning').first()).toBeVisible();
+  await page.getByText('查看原始牌面').click();
+  await expect(page.getByLabel('原始牌面复核')).toBeVisible();
+  await page.getByText('查看完整计算过程').click();
+  await expect(page.getByRole('heading', { name: '3. 番型关系处理' })).toBeVisible();
+
+  await page.getByRole('button', { name: '临时调整本次规则' }).click();
+  const dialog = page.getByRole('dialog', { name: '临时规则调整' });
+  await expect(dialog.locator('[data-adjustment-id]')).toHaveCount(161);
+  await dialog.locator('[data-adjustment-id="minimumFan"]').fill('8');
+  await dialog.getByRole('button', { name: '应用本次规则' }).click();
+  await expect(page.getByText('已保存本次规则调整。系统预设结果保持不变。')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '合法和牌' })).toBeVisible();
+  expect(consoleIssues).toEqual([]);
+});
+
 test('restores a reasonable Calculator scroll position after module navigation', async ({
   page,
 }) => {

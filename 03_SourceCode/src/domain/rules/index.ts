@@ -2,6 +2,7 @@ export * from './capability-registry';
 export * from './content-integrity';
 export * from './context-definition';
 export * from './encyclopedia-definition';
+export * from './effective-rule';
 export * from './hand-model';
 export * from './legality-definition';
 export * from './pattern-definition';

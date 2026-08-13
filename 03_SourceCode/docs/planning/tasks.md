@@ -1047,7 +1047,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T601 建立 AnalysisResult 状态渲染
 
-- 状态：TODO
+- 状态：DONE
 - 目标：按 Domain union 显示不同结果类型。
 - 依赖：M5
 - 验收：不通过 score>0 猜测合法性。
@@ -1056,7 +1056,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T602 实现正式结果摘要
 
-- 状态：TODO
+- 状态：DONE
 - 目标：显示最高合法结果、计入/未计入番型。
 - 依赖：T601
 - 测试：Result fixture
@@ -1064,7 +1064,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T603 实现最高拆分牌面
 
-- 状态：TODO
+- 状态：DONE
 - 目标：按当前 Candidate 排列并高亮胡牌张。
 - 依赖：T602
 - 测试：并列切换
@@ -1072,7 +1072,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T604 实现完整计算过程
 
-- 状态：TODO
+- 状态：DONE
 - 目标：渲染 Explanation。
 - 依赖：T408、T602
 - 验收：包含来源、关系、计算顺序。
@@ -1081,7 +1081,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T605 实现并列最高方案切换
 
-- 状态：TODO
+- 状态：DONE
 - 目标：保留所有 tied-high。
 - 依赖：T409、T603
 - 测试：多 tied-high
@@ -1089,7 +1089,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T606 实现 Temporary Rule Adjustment UI
 
-- 状态：TODO
+- 状态：DONE
 - 目标：只展示规则声明的临时调整字段。
 - 依赖：T210、T602
 - 测试：字段白名单
@@ -1097,7 +1097,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T607 实现 EffectiveRule 构建
 
-- 状态：TODO
+- 状态：DONE
 - 目标：临时规则不修改原 RulePackage。
 - 依赖：T606
 - 测试：immutability
