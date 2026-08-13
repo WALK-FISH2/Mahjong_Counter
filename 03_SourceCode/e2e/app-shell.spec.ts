@@ -37,6 +37,26 @@ test('serves the production build and opens every main page', async ({ page }) =
   expect(consoleIssues).toEqual([]);
 });
 
+test('shows the Batch 18 RulePackage encyclopedia and Engine pattern details', async ({ page }) => {
+  const consoleIssues = collectConsoleIssues(page);
+
+  await page.goto('/#/rules');
+
+  await expect(page.getByRole('heading', { name: '大众麻将·通用简化版' })).toBeVisible();
+  await expect(page.getByText(/144 张实体牌/u)).toBeVisible();
+  await expect(page.getByRole('heading', { name: '来源与可信度' })).toBeVisible();
+
+  const catalog = page.getByRole('list', { name: '完整番表' });
+  await expect(catalog.getByRole('button')).toHaveCount(81);
+  await catalog.getByRole('button', { name: /大四喜/u }).click();
+
+  const detail = page.getByRole('article', { name: /大四喜/u });
+  await expect(detail).toContainText('88 fan');
+  await expect(detail).toContainText('东南西北四副风刻或杠。');
+  await expect(detail).toContainText('大四喜 包含且不重复计入 三风刻');
+  expect(consoleIssues).toEqual([]);
+});
+
 test('keeps the hash route and primary navigation usable at mobile and desktop widths', async ({
   page,
 }) => {

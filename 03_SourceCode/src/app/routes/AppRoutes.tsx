@@ -35,7 +35,10 @@ export function AppRoutes({
             />
           }
         />
-        <Route path="rules" element={<EncyclopediaPage />} />
+        <Route
+          path="rules"
+          element={<EncyclopediaPage repository={calculatorRuntime?.ruleRepository} />}
+        />
         <Route path="saved" element={<SavedExamplesPage />} />
         <Route
           path="settings"

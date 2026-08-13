@@ -1351,7 +1351,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T801 实现 Rule Encyclopedia 数据加载
 
-- 状态：TODO
+- 状态：DONE
 - 目标：读取与 RulePackage 同版本百科数据。
 - 依赖：M2、M7
 - 测试：规则/百科版本对应
@@ -1359,7 +1359,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T802 实现规则列表与状态
 
-- 状态：TODO
+- 状态：DONE
 - 目标：展示 development/test/full。
 - 依赖：T801
 - 测试：状态筛选
@@ -1367,7 +1367,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T803 实现规则详情页
 
-- 状态：TODO
+- 状态：DONE
 - 目标：简介、牌种、门槛、封顶、自摸、来源、限制。
 - 依赖：T801
 - 测试：核心内容
@@ -1375,7 +1375,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T804 实现完整番表
 
-- 状态：TODO
+- 状态：DONE
 - 目标：直接读取 Engine 使用的 PatternDefinition。
 - 依赖：T206、T801
 - 验收：不存在独立 UI 番值常量。
@@ -1384,7 +1384,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T805 实现番型详情
 
-- 状态：TODO
+- 状态：DONE
 - 目标：名称、别名、值、条件、关系、来源。
 - 依赖：T804
 - 测试：Pattern ref
