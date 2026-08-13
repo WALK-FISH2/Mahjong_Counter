@@ -276,10 +276,7 @@ test('renders a Batch 14 formal result and rule-declared temporary adjustments',
   await expect(dialog.locator('[data-adjustment-id]')).toHaveCount(161);
   await dialog.locator('[data-adjustment-id="minimumFan"]').fill('8');
   await dialog.getByRole('button', { name: '应用本次规则' }).click();
-  await expect(
-    page.getByText('已保存本次规则调整，请重新分析以形成完整的本次规则结果。'),
-  ).toBeVisible();
-  await page.getByRole('button', { name: '开始分析' }).click();
+  await expect(page.getByText('已保存本次规则调整，正在自动重新分析。')).toBeVisible();
   await expect(page.getByText('本次规则结果 · 本次规则已调整')).toBeVisible();
   await expect(page.getByRole('navigation', { name: '结果层级' })).toBeVisible();
 
@@ -293,6 +290,16 @@ test('renders a Batch 14 formal result and rule-declared temporary adjustments',
   await page.getByRole('button', { name: '系统预设结果' }).click();
   await expect(page.locator('.result-layer-label')).toHaveText('系统预设结果');
   await expect(page.getByRole('button', { name: '保存牌例' })).toBeEnabled();
+
+  await page.getByRole('button', { name: '忽略当前和牌，继续分析出牌' }).click();
+  const independentDiscard = page
+    .getByRole('heading', { name: '打哪张后听牌' })
+    .locator('xpath=../../..');
+  await expect(independentDiscard).toContainText('当前正式和牌结果保持不变');
+  await expect(page.getByRole('heading', { name: '合法和牌' })).toBeVisible();
+  await independentDiscard.getByRole('button', { name: '返回正式和牌结果' }).click();
+  await expect(independentDiscard).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '合法和牌' })).toBeVisible();
   expect(consoleIssues).toEqual([]);
 });
 

@@ -45,6 +45,7 @@ import { TestingRuleConfirmationDialog } from '../../features/rule-switch/Testin
 import { navigationStore } from '../../app/routes/navigation-store';
 import { getResultActionPolicy } from '../../application/calculator/result-action-policy';
 import { AnalysisResult } from '../../features/analysis-result/AnalysisResult';
+import { EngineErrorRecoveryPanel } from '../../features/analysis-result/EngineErrorRecoveryPanel';
 import { TemporaryRuleAdjustmentDialog } from '../../features/rule-adjustment/TemporaryRuleAdjustmentDialog';
 import { QuickCalcPanel } from '../../features/quick-calc/QuickCalcPanel';
 import { ReadyAnalysisPanel } from '../../features/ready-analysis/ReadyAnalysisPanel';
@@ -174,6 +175,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const [readyAnalysisResult, setReadyAnalysisResult] = useState<ReadyAnalysisOutcome | null>(null);
   const [readyAnalysisRevision, setReadyAnalysisRevision] = useState<number | null>(null);
   const [selectedDiscardTile, setSelectedDiscardTile] = useState<TileCode | null>(null);
+  const [legalWinDiscardView, setLegalWinDiscardView] = useState(false);
   const [waitSortMode, setWaitSortMode] = useState<WaitSortMode>('highest-score');
   const [onboarding, setOnboarding] = useState<OnboardingState>({
     showRuleNotice: false,
@@ -214,7 +216,6 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const clearContextValue = useStore(store, (state) => state.clearContextValue);
   const undoContextRemovals = useStore(store, (state) => state.undoContextRemovals);
   const clearCorrectionIssue = useStore(store, (state) => state.clearCorrectionIssue);
-  const startAnalysis = useStore(store, (state) => state.startAnalysis);
   const cancelAnalysis = useStore(store, (state) => state.cancelAnalysis);
   const selectAnalysisCandidate = useStore(store, (state) => state.selectAnalysisCandidate);
   const applyTemporaryRuleAdjustment = useStore(
@@ -250,6 +251,10 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
     readyAnalysisResult?.documentRevision === document.revision ? readyAnalysisResult : null;
   const currentReadyAnalysisStatus =
     readyAnalysisRevision === document.revision ? readyAnalysisStatus : 'idle';
+  const activeLegalWinDiscardView =
+    legalWinDiscardView &&
+    readyAnalysisRevision === document.revision &&
+    analysisResult?.status === 'legal-win';
   const discardCandidates =
     currentReadyAnalysisResult?.kind === 'discard-to-ready'
       ? currentReadyAnalysisResult.primary.candidates.map(({ discard }) => discard)
@@ -480,6 +485,39 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
     }
   };
 
+  const runLegalWinDiscardAnalysis = async (): Promise<void> => {
+    if (runtime === undefined) return;
+    const currentDocument = store.getState().document;
+    const currentRule = store.getState().rulePackage;
+    readyAnalysisRequestRef.current += 1;
+    const requestToken = readyAnalysisRequestRef.current;
+    setLegalWinDiscardView(true);
+    setReadyAnalysisRevision(currentDocument.revision);
+    setReadyAnalysisStatus('analyzing');
+    try {
+      const outcome = await runtime.readyAnalysisService.analyzeDiscardIgnoringWinningTile(
+        currentDocument,
+        currentRule,
+      );
+      if (readyAnalysisRequestRef.current !== requestToken) return;
+      setReadyAnalysisResult(outcome);
+      setReadyAnalysisStatus('result');
+      setSelectedDiscardTile(
+        sortDiscardCandidates(outcome.primary.candidates, waitSortMode)[0]?.discard ?? null,
+      );
+    } catch {
+      if (
+        readyAnalysisRequestRef.current === requestToken &&
+        store.getState().document.revision === currentDocument.revision
+      ) {
+        setReadyAnalysisStatus('error');
+      }
+    }
+  };
+
+  const runFormalAnalysis = () =>
+    runtime?.engineErrorRecovery.runAnalysis() ?? store.getState().startAnalysis();
+
   const requestReadyAnalysis = (): void => {
     if (runtime === undefined) return;
     void (async () => {
@@ -708,18 +746,33 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
           />
 
           <ReadyAnalysisPanel
-            availableKind={readyAnalysisKind}
+            availableKind={activeLegalWinDiscardView ? 'discard-to-ready' : readyAnalysisKind}
             status={currentReadyAnalysisStatus}
             result={currentReadyAnalysisResult}
             sortMode={waitSortMode}
             selectedDiscard={selectedDiscardTile}
-            onAnalyze={requestReadyAnalysis}
+            onAnalyze={
+              activeLegalWinDiscardView
+                ? () => void runLegalWinDiscardAnalysis()
+                : requestReadyAnalysis
+            }
             onCancel={() => {
               readyAnalysisRequestRef.current += 1;
               runtime?.readyAnalysisService.cancel();
               setReadyAnalysisStatus('idle');
             }}
             onSelectDiscard={setSelectedDiscardTile}
+            independentLegalWinView={activeLegalWinDiscardView}
+            onReturnToFormalResult={() => {
+              readyAnalysisRequestRef.current += 1;
+              runtime?.readyAnalysisService.cancel();
+              setLegalWinDiscardView(false);
+              setReadyAnalysisStatus('idle');
+              setReadyAnalysisResult(null);
+              setSelectedDiscardTile(null);
+              analysisSectionRef.current?.scrollIntoView({ block: 'center' });
+              analysisSectionRef.current?.focus();
+            }}
           />
 
           <section
@@ -733,7 +786,14 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
             {analysisStatus === 'analyzing' ? (
               <p role="status">正在分析当前牌面…</p>
             ) : analysisResult === null ? (
-              <p>尚未开始分析</p>
+              runtime === undefined ? (
+                <p>尚未开始分析</p>
+              ) : (
+                <EngineErrorRecoveryPanel
+                  service={runtime.engineErrorRecovery}
+                  idleContent={<p>尚未开始分析</p>}
+                />
+              )
             ) : (
               <AnalysisResult
                 result={analysisResult}
@@ -770,6 +830,9 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                 onClearFanAdjustment={(patternId) => {
                   if (clearFanAdjustment(patternId)) setInputNotice('已清除该番型人工调整。');
                 }}
+                {...(runtime === undefined
+                  ? {}
+                  : { onContinueDiscardAnalysis: () => void runLegalWinDiscardAnalysis() })}
               />
             )}
           </section>
@@ -802,7 +865,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                   return;
                 }
               }
-              const result = await startAnalysis();
+              const result = await runFormalAnalysis();
               if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
             })();
           }}
@@ -858,7 +921,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                 if (pendingTestingAction === 'analysis') {
                   setPendingTestingAction(null);
                   closeActiveModal();
-                  void startAnalysis().then((result) => {
+                  void runFormalAnalysis().then((result) => {
                     if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
                   });
                 } else if (pendingTestingAction === 'ready-analysis') {
@@ -934,7 +997,9 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
               applyResult(
                 applyTemporaryRuleAdjustment(values),
                 values !== null && Object.keys(values).length > 0
-                  ? '已保存本次规则调整，请重新分析以形成完整的本次规则结果。'
+                  ? runtime?.analysisLifecycle.isAutomaticRecalculationEnabled()
+                    ? '已保存本次规则调整，正在自动重新分析。'
+                    : '已保存本次规则调整，请重新分析以形成完整的本次规则结果。'
                   : '当前使用系统预设规则。',
               )
             ) {

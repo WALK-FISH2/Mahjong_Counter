@@ -121,4 +121,59 @@ describe('ReadyAnalysisService', () => {
     });
     expect(service.getKind(transientDocument, commonSimpleRulePackage)).toBeNull();
   });
+
+  it('derives an independent discard view from a legal winning hand without mutating it', async () => {
+    const legalDocument = documentFor(createHandSnapshot({ ...readyHand, winningTile: 'white' }));
+    const service = createReadyAnalysisService({
+      client: new EngineWorkerClient(() => new LoopbackWorkerPort()),
+      engineVersion: 'test-engine',
+      getCurrentDocumentRevision: () => legalDocument.revision,
+    });
+
+    const outcome = await service.analyzeDiscardIgnoringWinningTile(
+      legalDocument,
+      commonSimpleRulePackage,
+    );
+
+    expect(outcome.kind).toBe('discard-to-ready');
+    expect(outcome.documentRevision).toBe(legalDocument.revision);
+    expect(outcome.primary.candidates.length).toBeGreaterThan(0);
+    expect(legalDocument.hand.concealed).toHaveLength(13);
+    expect(legalDocument.hand.winningTile).toBe('white');
+  });
+
+  it('returns an empty independent discard candidate list without altering the formal hand', async () => {
+    const noReadyDocument = documentFor(
+      createHandSnapshot({
+        concealed: [
+          'm1',
+          'm1',
+          'm2',
+          'm4',
+          'm5',
+          'p1',
+          'p3',
+          'p5',
+          's1',
+          's4',
+          'east',
+          'south',
+          'white',
+        ],
+        winningTile: 'green',
+      }),
+    );
+    const service = createReadyAnalysisService({
+      client: new EngineWorkerClient(() => new LoopbackWorkerPort()),
+      engineVersion: 'test-engine',
+      getCurrentDocumentRevision: () => noReadyDocument.revision,
+    });
+
+    const outcome = await service.analyzeDiscardIgnoringWinningTile(
+      noReadyDocument,
+      commonSimpleRulePackage,
+    );
+    expect(outcome.primary.candidates).toEqual([]);
+    expect(noReadyDocument.hand.winningTile).toBe('green');
+  });
 });

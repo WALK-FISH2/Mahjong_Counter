@@ -114,4 +114,26 @@ describe('EngineWorkerClient', () => {
     await expect(pending).rejects.toBeInstanceOf(EngineRequestCancelledError);
     expect(firstPort.terminate).toHaveBeenCalledOnce();
   });
+
+  it('rejects a Worker error without publishing a guessed result', async () => {
+    const port = new FakeWorkerPort();
+    const client = new EngineWorkerClient(() => port);
+    const target = request();
+    const pending = client.execute(target, () => target.documentRevision);
+
+    port.respond({
+      protocolVersion: target.protocolVersion,
+      engineVersion: target.engineVersion,
+      requestId: target.requestId,
+      documentRevision: target.documentRevision,
+      operation: target.operation,
+      status: 'error',
+      error: { code: 'ENGINE_EXECUTION_FAILED', message: 'worker failed' },
+    });
+
+    await expect(pending).rejects.toMatchObject({
+      name: 'EngineWorkerExecutionError',
+      code: 'ENGINE_EXECUTION_FAILED',
+    });
+  });
 });

@@ -19,6 +19,8 @@ export type ReadyAnalysisPanelProps = Readonly<{
   onAnalyze: () => void;
   onCancel: () => void;
   onSelectDiscard: (tile: TileCode) => void;
+  independentLegalWinView?: boolean;
+  onReturnToFormalResult?: () => void;
 }>;
 
 function modeLabel(mode: WinMode): string {
@@ -227,8 +229,10 @@ export function ReadyAnalysisPanel({
   onAnalyze,
   onCancel,
   onSelectDiscard,
+  independentLegalWinView = false,
+  onReturnToFormalResult,
 }: ReadyAnalysisPanelProps) {
-  if (availableKind === null && result === null) return null;
+  if (availableKind === null && result === null && !independentLegalWinView) return null;
 
   const isCurrentResult = result !== null;
   let primaryWaits: WaitAnalysisResult | null = null;
@@ -274,21 +278,36 @@ export function ReadyAnalysisPanel({
         )}
       </div>
 
+      {independentLegalWinView && (
+        <div className="ready-independent-notice">
+          <p>这是独立弃牌分析视图；当前正式和牌结果保持不变。</p>
+          <button className="secondary-action" type="button" onClick={onReturnToFormalResult}>
+            返回正式和牌结果
+          </button>
+        </div>
+      )}
+
       {status === 'error' && <p role="alert">本次听牌分析失败，请检查牌面后重试。</p>}
       {result?.kind === 'discard-to-ready' && (
-        <div className="ready-discard-options" aria-label="弃牌方案">
-          {orderedDiscards.map(({ discard, waits }) => (
-            <button
-              className="secondary-action"
-              type="button"
-              key={discard}
-              aria-pressed={(selectedDiscard ?? orderedDiscards[0]?.discard) === discard}
-              onClick={() => onSelectDiscard(discard)}
-            >
-              打{getTileMetadata(discard).chineseName} · {waits.legalWaitCount} 口
-            </button>
-          ))}
-        </div>
+        <>
+          {orderedDiscards.length === 0 ? (
+            <p>当前没有弃牌后听牌候选。</p>
+          ) : (
+            <div className="ready-discard-options" aria-label="弃牌方案">
+              {orderedDiscards.map(({ discard, waits }) => (
+                <button
+                  className="secondary-action"
+                  type="button"
+                  key={discard}
+                  aria-pressed={(selectedDiscard ?? orderedDiscards[0]?.discard) === discard}
+                  onClick={() => onSelectDiscard(discard)}
+                >
+                  打{getTileMetadata(discard).chineseName} · {waits.legalWaitCount} 口
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {primaryWaits !== null && alternateWaits !== null && result !== null && (

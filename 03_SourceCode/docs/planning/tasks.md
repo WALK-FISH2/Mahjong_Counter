@@ -1306,7 +1306,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T713 实现首次结果后的防抖自动重算
 
-- 状态：TODO
+- 状态：DONE
 - 目标：首次正式结果后，胡牌张、上下文、临时规则和番型调整变化触发协调后的防抖重算。
 - 依赖：T702～T704、T518
 - 验收：旧结果立即失效；只有当前 documentRevision 的结果可重新成为正式结果。
@@ -1315,7 +1315,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T714 实现 Engine Error 恢复流程
 
-- 状态：TODO
+- 状态：DONE
 - 目标：为计算异常提供业务级恢复，不依赖 React Error Boundary。
 - 依赖：T704、T520
 - 验收：
@@ -1328,7 +1328,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T715 实现合法和牌继续弃牌分析入口
 
-- 状态：TODO
+- 状态：DONE
 - 目标：在 Legal Win 中提供弱化入口“忽略当前和牌，继续分析出牌”。
 - 依赖：T706、T602
 - 验收：入口不改变或覆盖当前正式和牌结果，只建立独立弃牌分析视图。
@@ -1337,11 +1337,13 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ### M7 Gate
 
-- [ ] 13 张听牌可用
-- [ ] 14 张弃牌后听牌可用
-- [ ] Worker stale/cancel 正确
-- [ ] 不显示剩余张数或概率
-- [ ] 防抖自动重算、Engine Error 恢复和合法和牌继续分析通过
+- [x] 13 张听牌可用
+- [x] 14 张弃牌后听牌可用
+- [x] Worker stale/cancel 正确
+- [x] 不显示剩余张数或概率
+- [x] 防抖自动重算、Engine Error 恢复和合法和牌继续分析通过
+
+Gate 证据：`docs/verification/m7/gate.md`
 
 ---
 

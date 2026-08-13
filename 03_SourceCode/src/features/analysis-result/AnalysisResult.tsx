@@ -28,6 +28,7 @@ export type AnalysisResultProps = Readonly<{
   onSelectLayer?: (layer: EvaluationLayer) => void;
   onApplyFanAdjustment?: (patternId: string, action: 'exclude' | 'force-include') => void;
   onClearFanAdjustment?: (patternId: string) => void;
+  onContinueDiscardAnalysis?: () => void;
 }>;
 
 const RELATION_REASON_LABELS: Readonly<Record<string, string>> = Object.freeze({
@@ -463,6 +464,7 @@ export function AnalysisResult({
   onSelectLayer,
   onApplyFanAdjustment,
   onClearFanAdjustment,
+  onContinueDiscardAnalysis,
 }: AnalysisResultProps) {
   const candidate = selectedCandidate(result, selectedCandidateId);
   const statusContent = {
@@ -591,6 +593,15 @@ export function AnalysisResult({
             </button>
           )}
         </div>
+      )}
+      {result.status === 'legal-win' && onContinueDiscardAnalysis !== undefined && (
+        <button
+          className="secondary-action legal-win-discard-entry"
+          type="button"
+          onClick={onContinueDiscardAnalysis}
+        >
+          忽略当前和牌，继续分析出牌
+        </button>
       )}
     </div>
   );

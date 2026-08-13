@@ -5,6 +5,7 @@ import {
   createCalculatorDocument,
   type CalculatorDocument,
 } from '../../domain/mahjong/calculator-document';
+import { createHandSnapshot } from '../../domain/mahjong/hand';
 import { createWinContext, type WinMode } from '../../domain/mahjong/context';
 import { countHandStructure } from '../../domain/mahjong/hand-count';
 import { validateHandSnapshot } from '../../domain/mahjong/validation';
@@ -32,6 +33,10 @@ export type ReadyAnalysisOutcome = WaitAnalysisOutcome | DiscardToReadyOutcome;
 export interface ReadyAnalysisService {
   getKind(document: CalculatorDocument, rule: RulePackageDefinition): ReadyAnalysisKind | null;
   analyze(document: CalculatorDocument, rule: RulePackageDefinition): Promise<ReadyAnalysisOutcome>;
+  analyzeDiscardIgnoringWinningTile(
+    document: CalculatorDocument,
+    rule: RulePackageDefinition,
+  ): Promise<DiscardToReadyOutcome>;
   cancel(): void;
 }
 
@@ -101,29 +106,52 @@ export function createReadyAnalysisService(
     return response.result;
   };
 
+  const analyzeReadyDocument = async (
+    document: CalculatorDocument,
+    rule: RulePackageDefinition,
+  ): Promise<ReadyAnalysisOutcome> => {
+    const effectiveRule = buildEffectiveRule(rule, document.temporaryRuleAdjustment);
+    const kind = getReadyAnalysisKind(document, effectiveRule);
+    if (kind === null)
+      throw new Error('Current CalculatorDocument is not ready for ready analysis.');
+
+    const secondaryMode = alternateMode(document.context.mode);
+    const [primary, alternate] = await Promise.all([
+      execute(kind, document, effectiveRule),
+      execute(kind, withMode(document, secondaryMode, effectiveRule), effectiveRule),
+    ]);
+
+    return Object.freeze({
+      kind,
+      documentRevision: document.revision,
+      primaryMode: document.context.mode,
+      alternateMode: secondaryMode,
+      primary,
+      alternate,
+    }) as ReadyAnalysisOutcome;
+  };
+
   const service: ReadyAnalysisService = {
     getKind: (document: CalculatorDocument, rule: RulePackageDefinition) =>
       getReadyAnalysisKind(document, buildEffectiveRule(rule, document.temporaryRuleAdjustment)),
-    analyze: async (document: CalculatorDocument, rule: RulePackageDefinition) => {
-      const effectiveRule = buildEffectiveRule(rule, document.temporaryRuleAdjustment);
-      const kind = getReadyAnalysisKind(document, effectiveRule);
-      if (kind === null)
-        throw new Error('Current CalculatorDocument is not ready for ready analysis.');
-
-      const secondaryMode = alternateMode(document.context.mode);
-      const [primary, alternate] = await Promise.all([
-        execute(kind, document, effectiveRule),
-        execute(kind, withMode(document, secondaryMode, effectiveRule), effectiveRule),
-      ]);
-
-      return Object.freeze({
-        kind,
-        documentRevision: document.revision,
-        primaryMode: document.context.mode,
-        alternateMode: secondaryMode,
-        primary,
-        alternate,
-      }) as ReadyAnalysisOutcome;
+    analyze: analyzeReadyDocument,
+    analyzeDiscardIgnoringWinningTile: async (document, rule) => {
+      if (document.hand.winningTile === null) {
+        throw new Error('A legal winning tile is required before continuing discard analysis.');
+      }
+      const analysisDocument = createCalculatorDocument({
+        ...document,
+        hand: createHandSnapshot({
+          ...document.hand,
+          concealed: [...document.hand.concealed, document.hand.winningTile],
+          winningTile: null,
+        }),
+      });
+      const outcome = await analyzeReadyDocument(analysisDocument, rule);
+      if (outcome.kind !== 'discard-to-ready') {
+        throw new Error('The legal winning hand did not produce discard analysis input.');
+      }
+      return outcome;
     },
     cancel: () => input.client.cancelAndRebuild(),
   };

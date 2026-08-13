@@ -129,4 +129,35 @@ describe('ReadyAnalysisPanel', () => {
     await user.selectOptions(switcher, sevenPairs.best.candidateId);
     expect(screen.getByText('当前查看：七对')).toBeVisible();
   });
+
+  it('labels the legal-win continuation as independent and returns to the formal result', async () => {
+    const user = userEvent.setup();
+    const onReturn = vi.fn();
+    render(
+      <ReadyAnalysisPanel
+        availableKind="discard-to-ready"
+        status="result"
+        result={{
+          kind: 'discard-to-ready',
+          documentRevision: 0,
+          primaryMode: 'discard',
+          alternateMode: 'self-draw',
+          primary: { candidates: [] },
+          alternate: { candidates: [] },
+        }}
+        sortMode="highest-score"
+        selectedDiscard={null}
+        onAnalyze={vi.fn()}
+        onCancel={vi.fn()}
+        onSelectDiscard={vi.fn()}
+        independentLegalWinView
+        onReturnToFormalResult={onReturn}
+      />,
+    );
+
+    expect(screen.getByText(/当前正式和牌结果保持不变/)).toBeVisible();
+    expect(screen.getByText('当前没有弃牌后听牌候选。')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '返回正式和牌结果' }));
+    expect(onReturn).toHaveBeenCalledOnce();
+  });
 });

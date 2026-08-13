@@ -26,13 +26,21 @@ import {
   createQuickCalcEvaluator,
   type QuickCalcEvaluator,
 } from '../../application/calculator/quick-calc';
-import { ENGINE_VERSION } from '../version';
+import { APP_VERSION, ENGINE_VERSION } from '../version';
 import { createBrowserEngineWorkerPort } from '../../infrastructure/engine-worker';
 import {
   COMMON_SIMPLE_RULE_REF,
   createCommonSimpleRuleRepository,
 } from '../../infrastructure/rule-repository/common-simple-rule-repository';
 import type { BuiltInRuleRepository } from '../../infrastructure/rule-repository/built-in-rule-repository';
+import {
+  createAnalysisLifecycleCoordinator,
+  createCalculatorUndoPort,
+  createEngineErrorRecoveryService,
+  type AnalysisLifecycleCoordinator,
+  type EngineErrorRecoveryService,
+} from '../../application/analysis-lifecycle';
+import { createBrowserClipboardPort } from '../../infrastructure/clipboard';
 
 export type CalculatorRuntime = Readonly<{
   store: CalculatorStore;
@@ -41,6 +49,8 @@ export type CalculatorRuntime = Readonly<{
   preferencesPort: InMemoryCalculatorPreferencesPort;
   replaceGuard: ReturnType<typeof createCalculatorReplaceGuard>;
   readyAnalysisService: ReadyAnalysisService;
+  engineErrorRecovery: EngineErrorRecoveryService;
+  analysisLifecycle: AnalysisLifecycleCoordinator;
 }>;
 
 let calculatorRuntimePromise: Promise<CalculatorRuntime> | undefined;
@@ -64,6 +74,18 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
       extraScoringCalculators: commonSimpleExtraScoringCalculatorRegistry,
     });
     storeRef.current = store;
+    const engineErrorRecovery = createEngineErrorRecoveryService({
+      store,
+      draftProtectionPort: draftPort,
+      undoPort: createCalculatorUndoPort(store),
+      clipboardPort: createBrowserClipboardPort(),
+      appVersion: APP_VERSION,
+      engineVersion: ENGINE_VERSION,
+    });
+    const analysisLifecycle = createAnalysisLifecycleCoordinator({
+      store,
+      runAnalysis: engineErrorRecovery.runAnalysis,
+    });
 
     return Object.freeze({
       store,
@@ -79,6 +101,8 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
         engineVersion: ENGINE_VERSION,
         getCurrentDocumentRevision: () => storeRef.current?.getState().document.revision ?? 0,
       }),
+      engineErrorRecovery,
+      analysisLifecycle,
     });
   })();
 

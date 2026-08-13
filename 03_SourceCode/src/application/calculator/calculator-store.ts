@@ -208,6 +208,7 @@ export type CalculatorState = Readonly<{
   undoContextRemovals: () => boolean;
   clearCorrectionIssue: (issueId: string) => boolean;
   startAnalysis: () => Promise<CalculatorInputResult>;
+  invalidateAnalysis: () => void;
   cancelAnalysis: () => boolean;
   selectAnalysisCandidate: (candidateId: string) => boolean;
   applyTemporaryRuleAdjustment: (values: TemporaryAdjustmentValues) => CalculatorInputResult;
@@ -1254,9 +1255,10 @@ export function createCalculatorStore(
             });
           }
         } catch {
-          if (get().document.revision === revision && get().analysisStatus === 'analyzing') {
-            set({ analysisStatus: 'idle', analysisResult: null });
+          if (get().document.revision !== revision || get().analysisStatus !== 'analyzing') {
+            return ACCEPTED_INPUT;
           }
+          set({ analysisStatus: 'idle', analysisResult: null });
           return rejectedInput('ANALYSIS_FAILED');
         }
         if (get().document.revision !== revision || get().analysisStatus !== 'analyzing') {
@@ -1310,6 +1312,16 @@ export function createCalculatorStore(
           selectedAnalysisCandidateId: displayed.selectedCandidateId,
         });
         return ACCEPTED_INPUT;
+      },
+      invalidateAnalysis: () => {
+        evaluator?.cancel?.();
+        set({
+          analysisStatus: 'idle',
+          analysisResult: null,
+          layeredEvaluation: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
+        });
       },
       cancelAnalysis: () => {
         const current = get();
