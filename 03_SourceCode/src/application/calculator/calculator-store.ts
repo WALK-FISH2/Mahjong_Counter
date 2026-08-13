@@ -156,10 +156,13 @@ export type CalculatorStatus = Readonly<{
   formalActionsAllowed: boolean;
 }>;
 
-export type CalculatorEvaluator = (
-  document: CalculatorDocument,
-  rulePackage: RulePackageDefinition,
-) => Promise<SystemEvaluation> | SystemEvaluation;
+export type CalculatorEvaluator = {
+  (
+    document: CalculatorDocument,
+    rulePackage: RulePackageDefinition,
+  ): Promise<SystemEvaluation> | SystemEvaluation;
+  cancel?: () => void;
+};
 
 export type CalculatorEvaluationCapabilities = Readonly<{
   scoringStrategies: ScoringStrategyRegistry;
@@ -1311,6 +1314,7 @@ export function createCalculatorStore(
       cancelAnalysis: () => {
         const current = get();
         if (current.analysisStatus !== 'analyzing') return false;
+        evaluator?.cancel?.();
         set({ analysisStatus: 'idle', analysisResult: null });
         return true;
       },

@@ -3,6 +3,10 @@ import {
   type CalculatorStore,
 } from '../../application/calculator/calculator-store';
 import {
+  createWorkerCalculatorEvaluator,
+  EngineWorkerClient,
+} from '../../application/engine-worker';
+import {
   InMemoryCalculatorDraftPort,
   createCalculatorReplaceGuard,
 } from '../../application/calculator/replace-calculator';
@@ -10,7 +14,6 @@ import {
   InMemoryCalculatorPreferencesPort,
   recordRecentlyUsedRule,
 } from '../../application/preferences';
-import { commonSimplePatternRecognizerRegistry } from '../../content/rules/common-simple/pattern-recognizers';
 import {
   commonSimpleExtraScoringCalculatorRegistry,
   commonSimpleScoringStrategyRegistry,
@@ -19,7 +22,8 @@ import {
   createQuickCalcEvaluator,
   type QuickCalcEvaluator,
 } from '../../application/calculator/quick-calc';
-import { evaluateHand } from '../../domain/engine/evaluation';
+import { ENGINE_VERSION } from '../version';
+import { createBrowserEngineWorkerPort } from '../../infrastructure/engine-worker';
 import {
   COMMON_SIMPLE_RULE_REF,
   createCommonSimpleRuleRepository,
@@ -43,23 +47,18 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
     const ruleRepository = createCommonSimpleRuleRepository();
     const rulePackage = await ruleRepository.getInstalledRule(COMMON_SIMPLE_RULE_REF);
     await recordRecentlyUsedRule(preferencesPort, rulePackage.manifest);
-    const store = createCalculatorStore(
-      rulePackage,
-      undefined,
-      (document, rule) =>
-        evaluateHand({
-          hand: document.hand,
-          context: document.context,
-          rule,
-          patternRecognizers: commonSimplePatternRecognizerRegistry,
-          scoringStrategies: commonSimpleScoringStrategyRegistry,
-          extraScoringCalculators: commonSimpleExtraScoringCalculatorRegistry,
-        }),
-      {
-        scoringStrategies: commonSimpleScoringStrategyRegistry,
-        extraScoringCalculators: commonSimpleExtraScoringCalculatorRegistry,
-      },
-    );
+    const engineWorkerClient = new EngineWorkerClient(createBrowserEngineWorkerPort);
+    const storeRef: { current: CalculatorStore | undefined } = { current: undefined };
+    const evaluator = createWorkerCalculatorEvaluator({
+      client: engineWorkerClient,
+      engineVersion: ENGINE_VERSION,
+      getCurrentDocumentRevision: () => storeRef.current?.getState().document.revision ?? 0,
+    });
+    const store = createCalculatorStore(rulePackage, undefined, evaluator, {
+      scoringStrategies: commonSimpleScoringStrategyRegistry,
+      extraScoringCalculators: commonSimpleExtraScoringCalculatorRegistry,
+    });
+    storeRef.current = store;
 
     return Object.freeze({
       store,

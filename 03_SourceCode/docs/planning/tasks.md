@@ -1207,7 +1207,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T701 建立 Worker Protocol
 
-- 状态：TODO
+- 状态：DONE
 - 目标：定义 evaluate/wait/discard 请求响应。
 - 依赖：M6
 - 测试：协议序列化
@@ -1215,7 +1215,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T702 实现 Engine Worker
 
-- 状态：TODO
+- 状态：DONE
 - 目标：将重计算移出主线程。
 - 依赖：T701
 - 验收：页面交互在分析中保持响应。
@@ -1224,7 +1224,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T703 实现 stale revision 丢弃
 
-- 状态：TODO
+- 状态：DONE
 - 目标：旧结果永不污染新牌面。
 - 依赖：T702、T110
 - 测试：快速连续修改
@@ -1232,7 +1232,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T704 实现分析取消与 Worker 重建
 
-- 状态：TODO
+- 状态：DONE
 - 目标：用户可取消长任务。
 - 依赖：T702
 - 测试：cancel 后无结果进入 UI
@@ -1240,7 +1240,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T705 实现 Wait Analysis Domain
 
-- 状态：TODO
+- 状态：DONE
 - 目标：枚举 enabledTiles 并复用正式 evaluate。
 - 依赖：T410、T702
 - 测试：合法/待确认/结构可和
@@ -1248,7 +1248,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T706 实现 Discard-to-ready Domain
 
-- 状态：TODO
+- 状态：DONE
 - 目标：枚举暗手牌 distinct discard。
 - 依赖：T705
 - 测试：一步进入听牌/无听牌
@@ -1256,7 +1256,7 @@ Gate 证据：`docs/verification/m6/gate.md`
 
 ## T707 实现 Worker 会话级 LRU Cache
 
-- 状态：TODO
+- 状态：DONE
 - 目标：减少重复牌面分析。
 - 依赖：T705～T706
 - 测试：缓存命中与版本隔离
