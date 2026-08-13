@@ -296,6 +296,46 @@ test('renders a Batch 14 formal result and rule-declared temporary adjustments',
   expect(consoleIssues).toEqual([]);
 });
 
+test('supports Batch 15A Quick Calc without formal result capabilities', async ({ page }) => {
+  const consoleIssues = collectConsoleIssues(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/calculator');
+
+  await page.getByRole('button', { name: '我已知道番型，只想快速合计' }).click();
+  await expect(page.getByRole('heading', { name: '快速算番' })).toBeVisible();
+  await expect(page.getByText('用户选择，未经牌面验证')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '主导航' }).getByText('快速算番')).toHaveCount(
+    0,
+  );
+
+  const quickContext = page.getByRole('heading', { name: '和牌条件' }).locator('..');
+  await quickContext.getByLabel('门风').selectOption({ label: '东风' });
+  await quickContext.getByLabel('圈风').selectOption({ label: '南风' });
+  await page.getByRole('checkbox', { name: /边张/ }).check();
+  await page.getByRole('checkbox', { name: /单钓将/ }).check();
+  await page.getByRole('button', { name: '计算用户所选番型' }).click();
+
+  const result = page.getByRole('heading', { name: '临时合计' }).locator('..');
+  await expect(result).toContainText('用户选择，未经牌面验证');
+  await expect(result).toContainText('边张：与已计入番型互斥');
+  await result.getByRole('button', { name: '复制文字' }).click();
+  const copyStatus = result.getByRole('status');
+  const copyFallback = result.getByRole('textbox', { name: /当前浏览器无法直接复制/ });
+  await expect(copyStatus.or(copyFallback)).toHaveCount(1);
+  if (await copyFallback.isVisible()) {
+    await expect(copyFallback).toHaveValue(/快速算番（用户选择，未经牌面验证）/);
+  } else {
+    await expect(copyStatus).toHaveText('已复制快速算番文字。');
+  }
+  await expect(result.getByRole('button', { name: '保存牌例' })).toHaveCount(0);
+  await expect(result.getByRole('button', { name: '分享链接' })).toHaveCount(0);
+  await expect(result.getByRole('button', { name: /听牌|拆分/ })).toHaveCount(0);
+
+  await page.getByRole('button', { name: '返回牌面计算' }).click();
+  await expect(page.getByRole('heading', { name: '选牌器' })).toBeVisible();
+  expect(consoleIssues).toEqual([]);
+});
+
 test('restores a reasonable Calculator scroll position after module navigation', async ({
   page,
 }) => {

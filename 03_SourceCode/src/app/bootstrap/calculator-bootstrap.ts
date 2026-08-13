@@ -15,6 +15,10 @@ import {
   commonSimpleExtraScoringCalculatorRegistry,
   commonSimpleScoringStrategyRegistry,
 } from '../../content/rules/common-simple/scoring-capabilities';
+import {
+  createQuickCalcEvaluator,
+  type QuickCalcEvaluator,
+} from '../../application/calculator/quick-calc';
 import { evaluateHand } from '../../domain/engine/evaluation';
 import {
   COMMON_SIMPLE_RULE_REF,
@@ -24,6 +28,7 @@ import type { BuiltInRuleRepository } from '../../infrastructure/rule-repository
 
 export type CalculatorRuntime = Readonly<{
   store: CalculatorStore;
+  quickCalcEvaluator: QuickCalcEvaluator;
   ruleRepository: BuiltInRuleRepository;
   preferencesPort: InMemoryCalculatorPreferencesPort;
   replaceGuard: ReturnType<typeof createCalculatorReplaceGuard>;
@@ -58,6 +63,10 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
 
     return Object.freeze({
       store,
+      quickCalcEvaluator: createQuickCalcEvaluator({
+        scoringStrategies: commonSimpleScoringStrategyRegistry,
+        extraScoringCalculators: commonSimpleExtraScoringCalculatorRegistry,
+      }),
       ruleRepository,
       preferencesPort,
       replaceGuard: createCalculatorReplaceGuard(store, draftPort),

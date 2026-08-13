@@ -1161,7 +1161,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T615 实现 Quick Calc Domain / Application Use Case
 
-- 状态：TODO
+- 状态：DONE
 - 目标：复用当前规则关系、计分、合法性、门槛和封顶完成手选番型合计。
 - 依赖：T405～T407、T210
 - 验收：
@@ -1173,7 +1173,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T616 实现 Quick Calc UI
 
-- 状态：TODO
+- 状态：DONE
 - 目标：在 Calculator 提供弱化入口和手选番型流程。
 - 依赖：T615、T523
 - 验收：
@@ -1185,7 +1185,7 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ## T617 固化 Quick Calc 输出限制
 
-- 状态：TODO
+- 状态：DONE
 - 目标：确保 Quick Calc 不能伪装成正式牌例结果。
 - 依赖：T614～T616
 - 验收：不显示保存牌例、牌例分享、听牌或多拆分入口，只允许临时查看和复制文字。
@@ -1194,10 +1194,12 @@ Gate 证据：`docs/verification/m5/gate.md`
 
 ### M6 Gate
 
-- [ ] 三层结果边界清晰
-- [ ] Fan Adjustment 永远不改变合法性
-- [ ] 完整结果过程可解释
-- [ ] Quick Calc 可用且未验证标识、保存/分享限制全部通过
+- [x] 三层结果边界清晰
+- [x] Fan Adjustment 永远不改变合法性
+- [x] 完整结果过程可解释
+- [x] Quick Calc 可用且未验证标识、保存/分享限制全部通过
+
+Gate 证据：`docs/verification/m6/gate.md`
 
 ---
 

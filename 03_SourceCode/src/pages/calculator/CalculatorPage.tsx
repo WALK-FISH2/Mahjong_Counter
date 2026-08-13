@@ -46,6 +46,7 @@ import { navigationStore } from '../../app/routes/navigation-store';
 import { getResultActionPolicy } from '../../application/calculator/result-action-policy';
 import { AnalysisResult } from '../../features/analysis-result/AnalysisResult';
 import { TemporaryRuleAdjustmentDialog } from '../../features/rule-adjustment/TemporaryRuleAdjustmentDialog';
+import { QuickCalcPanel } from '../../features/quick-calc/QuickCalcPanel';
 
 export type CalculatorPageProps = Readonly<{
   store?: CalculatorStore | undefined;
@@ -128,6 +129,21 @@ type LoadedCalculatorPageProps = Readonly<{
   runtime?: CalculatorRuntime | undefined;
 }>;
 
+function QuickCalcEntry({ onOpen }: Readonly<{ onOpen: () => void }>) {
+  return (
+    <section className="quick-calc-entry" aria-labelledby="quick-calc-entry-title">
+      <div>
+        <p className="section-kicker">次级工具</p>
+        <h2 id="quick-calc-entry-title">已经知道番型？</h2>
+        <p>无需录入牌面，按当前规则临时合计；结果不会验证实际手牌。</p>
+      </div>
+      <button type="button" className="secondary-action" onClick={onOpen}>
+        我已知道番型，只想快速合计
+      </button>
+    </section>
+  );
+}
+
 function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   const outletContext = useOutletContext<{ restoreCalculatorScroll?: number } | null>();
   const analysisSectionRef = useRef<HTMLElement>(null);
@@ -144,6 +160,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
     'analysis' | 'rule-switch' | null
   >(null);
   const [replacementPrompt, setReplacementPrompt] = useState<ReplacementPrompt | null>(null);
+  const [showQuickCalc, setShowQuickCalc] = useState(false);
   const [onboarding, setOnboarding] = useState<OnboardingState>({
     showRuleNotice: false,
     showInputGuide: false,
@@ -460,7 +477,23 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
         </p>
       )}
 
-      <div className="calculator-layout" data-testid="calculator-layout">
+      {runtime !== undefined &&
+        (showQuickCalc ? (
+          <QuickCalcPanel
+            key={`${rulePackage.manifest.ruleId}@${rulePackage.manifest.ruleVersion}`}
+            rulePackage={rulePackage}
+            evaluate={runtime.quickCalcEvaluator}
+            onClose={() => setShowQuickCalc(false)}
+          />
+        ) : (
+          <QuickCalcEntry onOpen={() => setShowQuickCalc(true)} />
+        ))}
+
+      <div
+        className="calculator-layout"
+        data-testid="calculator-layout"
+        hidden={showQuickCalc && runtime !== undefined}
+      >
         <div className="calculator-layout__input">
           <TilePalette
             tileSet={rulePackage.tileSet}
@@ -642,41 +675,43 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
         </div>
       </div>
 
-      <AnalyzeActionBar
-        status={calculatorStatus}
-        hasWinningTile={document.hand.winningTile !== null}
-        onAnalyze={() => {
-          void (async () => {
-            if (runtime !== undefined && rulePackage.manifest.status === 'test') {
-              const entry = (await runtime.ruleRepository.listRuleCatalog()).find(
-                ({ manifest }) =>
-                  manifest.ruleId === rulePackage.manifest.ruleId &&
-                  manifest.ruleVersion === rulePackage.manifest.ruleVersion,
-              );
-              if (
-                entry !== undefined &&
-                (await requiresTestingRuleConfirmation(
-                  runtime.preferencesPort,
-                  entry.manifest,
-                  entry.resultImpactVersion,
-                ))
-              ) {
-                setPendingTestingRule(entry);
-                setPendingTestingAction('analysis');
-                openModal('testing-rule-confirmation');
-                return;
+      {!(showQuickCalc && runtime !== undefined) && (
+        <AnalyzeActionBar
+          status={calculatorStatus}
+          hasWinningTile={document.hand.winningTile !== null}
+          onAnalyze={() => {
+            void (async () => {
+              if (runtime !== undefined && rulePackage.manifest.status === 'test') {
+                const entry = (await runtime.ruleRepository.listRuleCatalog()).find(
+                  ({ manifest }) =>
+                    manifest.ruleId === rulePackage.manifest.ruleId &&
+                    manifest.ruleVersion === rulePackage.manifest.ruleVersion,
+                );
+                if (
+                  entry !== undefined &&
+                  (await requiresTestingRuleConfirmation(
+                    runtime.preferencesPort,
+                    entry.manifest,
+                    entry.resultImpactVersion,
+                  ))
+                ) {
+                  setPendingTestingRule(entry);
+                  setPendingTestingAction('analysis');
+                  openModal('testing-rule-confirmation');
+                  return;
+                }
               }
-            }
-            const result = await startAnalysis();
-            if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
-          })();
-        }}
-        onCancel={cancelAnalysis}
-        onViewResult={() => {
-          analysisSectionRef.current?.scrollIntoView({ block: 'center' });
-          analysisSectionRef.current?.focus();
-        }}
-      />
+              const result = await startAnalysis();
+              if (!result.accepted) setInputNotice(rejectionMessage(result.reasonCode));
+            })();
+          }}
+          onCancel={cancelAnalysis}
+          onViewResult={() => {
+            analysisSectionRef.current?.scrollIntoView({ block: 'center' });
+            analysisSectionRef.current?.focus();
+          }}
+        />
+      )}
 
       {pendingChowAction !== null && (
         <IncompleteChowGuard
