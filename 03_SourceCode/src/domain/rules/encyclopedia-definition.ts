@@ -7,10 +7,20 @@ export type PatternArticleDefinition = Readonly<{
   blocks: readonly EncyclopediaContentBlock[];
 }>;
 
+export const ENCYCLOPEDIA_EXAMPLE_CATEGORIES = [
+  'basic',
+  'combination',
+  'counterexample',
+  'local-special',
+] as const;
+
+export type EncyclopediaExampleCategory = (typeof ENCYCLOPEDIA_EXAMPLE_CATEGORIES)[number];
+
 export type EncyclopediaExampleDefinition = Readonly<{
   exampleId: string;
   title: string;
   ruleCaseId: string;
+  category: EncyclopediaExampleCategory;
 }>;
 
 export type SourceArticleDefinition = Readonly<{

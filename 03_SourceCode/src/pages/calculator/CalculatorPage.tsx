@@ -54,6 +54,10 @@ import {
   type ReadyAnalysisOutcome,
   type WaitSortMode,
 } from '../../application/ready-analysis';
+import {
+  createEncyclopediaExampleReplacement,
+  findEncyclopediaExample,
+} from '../../application/encyclopedia';
 
 export type CalculatorPageProps = Readonly<{
   store?: CalculatorStore | undefined;
@@ -551,6 +555,32 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
       ? '默认录入到手牌'
       : '当前用于临时牌组';
 
+  const restoreEncyclopediaExample = (): void => {
+    if (runtime === undefined || document.source.kind !== 'encyclopedia-example') return;
+    const example = findEncyclopediaExample(
+      rulePackage,
+      runtime.encyclopediaRuleCases,
+      document.source.exampleId,
+    );
+    if (example === undefined) {
+      setInputNotice('原百科示例已不可用，当前牌面保持不变。');
+      return;
+    }
+
+    void runtime.replaceGuard
+      .prepareToReplaceCalculator(
+        'encyclopedia-example',
+        () => confirmReplacement('恢复原百科示例会替换当前修改，是否继续？'),
+        () => createEncyclopediaExampleReplacement(store.getState().document, rulePackage, example),
+      )
+      .then((result) => {
+        if (result.status === 'replaced') setInputNotice('已恢复原百科示例。');
+        if (result.status === 'draft-protection-failed') {
+          setInputNotice('当前计算保护失败，未恢复百科示例。');
+        }
+      });
+  };
+
   return (
     <article className="calculator-page" aria-labelledby="calculator-title">
       <CalculatorHeader
@@ -588,6 +618,15 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
         {...onboarding}
         onDismiss={() => setOnboarding({ showRuleNotice: false, showInputGuide: false })}
       />
+
+      {document.source.kind === 'encyclopedia-example' ? (
+        <p className="input-notice" role="status">
+          当前为百科带入的临时示例；修改不会自动保存。
+          <button className="secondary-action" onClick={restoreEncyclopediaExample} type="button">
+            恢复原示例
+          </button>
+        </p>
+      ) : null}
 
       {ruleSwitchUndo !== null && (
         <p className="input-notice" role="status">

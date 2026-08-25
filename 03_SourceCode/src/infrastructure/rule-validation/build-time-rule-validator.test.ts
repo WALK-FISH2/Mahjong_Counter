@@ -37,6 +37,10 @@ type MutableRulePackageFixture = {
   }>;
   relations: Array<{ type: string; winner?: string; covered?: string }>;
   sources: Array<{ sourceId: string }>;
+  encyclopedia: {
+    patternArticles: Array<{ patternId: string }>;
+    sourceArticles: Array<{ sourceId: string }>;
+  };
 };
 
 const ruleSpecMarkdown = readFileSync('docs/rules/common-simple/rule-spec-v1.0.md', 'utf8');
@@ -164,6 +168,10 @@ describe('Build-time Rule Validator', () => {
     disabledCountDrift.temporaryAdjustments = disabledCountDrift.temporaryAdjustments.filter(
       ({ target }) => target.patternId !== removedPattern?.patternId,
     );
+    disabledCountDrift.encyclopedia.patternArticles =
+      disabledCountDrift.encyclopedia.patternArticles.filter(
+        ({ patternId }) => patternId !== removedPattern?.patternId,
+      );
     await updateFixtureHash(disabledCountDrift);
     await expectBlocked(
       validateFixture({ rulePackageInput: disabledCountDrift }),
@@ -186,7 +194,15 @@ describe('Build-time Rule Validator', () => {
 
   it('blocks a RuleSource catalog drift and corpus identity drift', async () => {
     const sourceDrift = cloneRulePackage();
-    sourceDrift.sources.pop();
+    const removedSource = sourceDrift.sources.pop();
+    sourceDrift.patterns.forEach((pattern) => {
+      pattern.sourceRefs = pattern.sourceRefs.filter(
+        (sourceId) => sourceId !== removedSource?.sourceId,
+      );
+    });
+    sourceDrift.encyclopedia.sourceArticles = sourceDrift.encyclopedia.sourceArticles.filter(
+      ({ sourceId }) => sourceId !== removedSource?.sourceId,
+    );
     await updateFixtureHash(sourceDrift);
     await expectBlocked(validateFixture({ rulePackageInput: sourceDrift }), 'SOURCE_DRIFT');
 

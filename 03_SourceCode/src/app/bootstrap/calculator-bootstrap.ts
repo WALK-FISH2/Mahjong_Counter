@@ -41,6 +41,8 @@ import {
   type EngineErrorRecoveryService,
 } from '../../application/analysis-lifecycle';
 import { createBrowserClipboardPort } from '../../infrastructure/clipboard';
+import type { EncyclopediaRuleCase } from '../../application/encyclopedia';
+import { COMMON_SIMPLE_STRUCTURE_RULE_CASES } from '../../content/rules/common-simple/structure-rule-cases';
 
 export type CalculatorRuntime = Readonly<{
   store: CalculatorStore;
@@ -51,6 +53,7 @@ export type CalculatorRuntime = Readonly<{
   readyAnalysisService: ReadyAnalysisService;
   engineErrorRecovery: EngineErrorRecoveryService;
   analysisLifecycle: AnalysisLifecycleCoordinator;
+  encyclopediaRuleCases: readonly EncyclopediaRuleCase[];
 }>;
 
 let calculatorRuntimePromise: Promise<CalculatorRuntime> | undefined;
@@ -103,6 +106,7 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
       }),
       engineErrorRecovery,
       analysisLifecycle,
+      encyclopediaRuleCases: COMMON_SIMPLE_STRUCTURE_RULE_CASES,
     });
   })();
 
