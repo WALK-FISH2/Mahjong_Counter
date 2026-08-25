@@ -1392,7 +1392,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T806 实现百科搜索与筛选
 
-- 状态：TODO
+- 状态：DONE
 - 目标：名称/别名/类别/数值/启用状态，以及“仅查看当前牌面已识别番型”。
 - 依赖：T804
 - 测试：搜索、组合筛选、当前 Evaluation 识别集、无当前牌面降级
@@ -1400,7 +1400,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T807 实现百科示例
 
-- 状态：TODO
+- 状态：DONE
 - 目标：展示基础/组合/反例/地方特殊示例。
 - 依赖：T801
 - 测试：expected result 与 Rule Case 一致
@@ -1408,7 +1408,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T808 实现“带入计算器”
 
-- 状态：TODO
+- 状态：DONE
 - 目标：test/full 示例转临时 CalculatorDocument。
 - 依赖：T807、T106、T520
 - 验收：development 不可带入。
@@ -1417,7 +1417,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T809 实现规则与番型 Deep Link
 
-- 状态：TODO
+- 状态：DONE
 - 目标：刷新/返回保持位置。
 - 依赖：T803、T805
 - 测试：路由 E2E
@@ -1425,7 +1425,7 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ## T810 实现核心百科离线资源
 
-- 状态：TODO
+- 状态：DONE
 - 目标：生成 `common-simple@1.0.0` 核心百科的可缓存构建产物和离线资源清单；本 Task 不宣称正式 Offline 已完成。
 - 依赖：T801
 - 验收：Rule Version、Pattern Catalog、示例、来源和资源 URL 清单稳定，可供 T1104 纳入生产 Service Worker。
@@ -1434,10 +1434,12 @@ Gate 证据：`docs/verification/m7/gate.md`
 
 ### M8 Gate
 
-- [ ] 番表与 Engine 同源
-- [ ] 来源/争议/限制可查看
-- [ ] 示例可带入且不自动保存
-- [ ] 核心百科离线 bundle 与资源清单已准备；正式缓存与断网验收留在 T1104/M11
+- [x] 番表与 Engine 同源
+- [x] 来源/争议/限制可查看
+- [x] 示例可带入且不自动保存
+- [x] 核心百科离线 bundle 与资源清单已准备；正式缓存与断网验收留在 T1104/M11
+
+Gate 证据：`docs/verification/m8/gate.md`
 
 ---
 

@@ -133,7 +133,7 @@ summary:focus-visible {
   list-style: none;
 }
 
-.rule-encyclopedia-list button,
+.rule-encyclopedia-list a,
 .pattern-catalog-button {
   display: flex;
   align-items: center;
@@ -146,16 +146,17 @@ summary:focus-visible {
   color: var(--color-text);
   background: var(--color-surface-soft);
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.rule-encyclopedia-list button[aria-pressed='true'],
-.pattern-catalog-button[aria-pressed='true'] {
+.rule-encyclopedia-list a[aria-current='page'],
+.pattern-catalog-button[aria-current='page'] {
   border-color: var(--color-accent);
   box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
-.rule-encyclopedia-list button > span,
+.rule-encyclopedia-list a > span,
 .pattern-catalog-button > span {
   display: grid;
   gap: 0.15rem;
@@ -213,6 +214,80 @@ summary:focus-visible {
 .pattern-catalog-layout {
   display: grid;
   gap: 1rem;
+}
+
+.pattern-filter-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  background: var(--color-surface-soft);
+}
+
+.pattern-filter-panel label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.pattern-filter-panel input,
+.pattern-filter-panel select {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #9cb9ab;
+  border-radius: 0.45rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.pattern-filter-panel .pattern-current-filter {
+  display: flex;
+  align-items: center;
+}
+
+.pattern-filter-panel .pattern-current-filter input {
+  min-height: auto;
+}
+
+.pattern-category-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.4rem;
+  background: var(--color-surface);
+  font-weight: 800;
+}
+
+.encyclopedia-example-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+
+.encyclopedia-example-grid > section {
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.65rem;
+  background: var(--color-surface-soft);
+}
+
+.encyclopedia-example-grid ul {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.encyclopedia-example-grid li {
+  padding: 0.65rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface);
 }
 
 .pattern-catalog-list {

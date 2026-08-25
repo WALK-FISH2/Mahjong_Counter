@@ -47,13 +47,54 @@ test('shows the Batch 18 RulePackage encyclopedia and Engine pattern details', a
   await expect(page.getByRole('heading', { name: '来源与可信度' })).toBeVisible();
 
   const catalog = page.getByRole('list', { name: '完整番表' });
-  await expect(catalog.getByRole('button')).toHaveCount(81);
-  await catalog.getByRole('button', { name: /大四喜/u }).click();
+  await expect(catalog.getByRole('link')).toHaveCount(81);
+  await catalog.getByRole('link', { name: /大四喜/u }).click();
 
   const detail = page.getByRole('article', { name: /大四喜/u });
   await expect(detail).toContainText('88 fan');
   await expect(detail).toContainText('东南西北四副风刻或杠。');
   await expect(detail).toContainText('大四喜 包含且不重复计入 三风刻');
+  expect(consoleIssues).toEqual([]);
+});
+
+test('supports Batch 19 filters, Rule Case examples, deep links, and guarded Calculator import', async ({
+  page,
+}) => {
+  const consoleIssues = collectConsoleIssues(page);
+
+  await page.goto('/#/rules');
+  const catalog = page.getByRole('list', { name: '完整番表' });
+  await page.getByRole('searchbox', { name: '名称或别名' }).fill('十三幺');
+  await expect(catalog.getByRole('link')).toHaveCount(1);
+  await page.getByRole('searchbox', { name: '名称或别名' }).fill('');
+  await page.getByRole('combobox', { name: '番型启用状态' }).selectOption('disabled');
+  await expect(catalog.getByRole('link')).toHaveCount(3);
+  await page.getByRole('combobox', { name: '番型启用状态' }).selectOption('all');
+
+  await catalog.getByRole('link', { name: /大四喜/u }).click();
+  await expect(page).toHaveURL(/#\/rules\/common-simple\/1\.0\.0\/patterns\/bigFourWinds$/u);
+  await page.reload();
+  await expect(page.getByRole('article', { name: /大四喜/u })).toContainText(
+    '东南西北四副风刻或杠。',
+  );
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/rules$/u);
+
+  await expect(page.getByRole('heading', { name: '基础示例', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '地方特殊示例' })).toBeVisible();
+  await expect(page.getByText(/庄家、房间倍数和平台奖励不进入结果/u)).toBeVisible();
+  await page
+    .getByRole('heading', { name: '基础示例', exact: true })
+    .locator('..')
+    .getByRole('button', { name: '带入计算器' })
+    .click();
+  const guard = page.getByRole('dialog', { name: '带入百科示例？' });
+  await expect(guard).toContainText('不会自动保存');
+  await guard.getByRole('button', { name: '确认带入' }).click();
+  await expect(page).toHaveURL(/#\/calculator$/u);
+  await expect(page.getByRole('status')).toContainText('百科带入的临时示例');
+  await expect(page.getByRole('button', { name: '恢复原示例' })).toBeVisible();
+
   expect(consoleIssues).toEqual([]);
 });
 

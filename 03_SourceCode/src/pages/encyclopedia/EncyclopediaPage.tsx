@@ -1,19 +1,36 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import {
+  canBringEncyclopediaExampleIntoCalculator,
+  createEncyclopediaExampleReplacement,
+  filterEncyclopediaPatterns,
   filterRuleEncyclopediasByStatus,
+  getPatternCategory,
+  getRecognizedPatternIds,
   getPatternEncyclopediaDetail,
+  listEncyclopediaExamples,
+  type EncyclopediaRuleCase,
   loadRuleEncyclopedias,
+  type EncyclopediaExampleDetail,
   type LoadedRuleEncyclopedia,
+  type PatternEnabledFilter,
 } from '../../application/encyclopedia';
 import type { RuleRepository } from '../../application/rules/rule-repository';
-import type { EncyclopediaContentBlock } from '../../domain/rules/encyclopedia-definition';
+import type {
+  EncyclopediaContentBlock,
+  EncyclopediaExampleCategory,
+} from '../../domain/rules/encyclopedia-definition';
 import type { PatternRelationDefinition } from '../../domain/rules/pattern-relation';
 import type { RuleStatus } from '../../domain/rules/rule-manifest';
 import type { RulePackageDefinition } from '../../domain/rules/rule-package';
+import type { CalculatorRuntime } from '../../app/bootstrap/calculator-bootstrap';
+import { confirmTestingRule } from '../../application/preferences';
 
 export type EncyclopediaPageProps = Readonly<{
   repository?: RuleRepository | undefined;
+  runtime?: CalculatorRuntime | undefined;
+  ruleCases?: readonly EncyclopediaRuleCase[] | undefined;
 }>;
 
 const STATUS_OPTIONS: readonly Readonly<{
@@ -32,6 +49,17 @@ const STATUS_LABELS: Readonly<Record<RuleStatus, string>> = {
   full: '已完整支持',
 };
 
+const EXAMPLE_CATEGORY_LABELS: Readonly<Record<EncyclopediaExampleCategory, string>> = {
+  basic: '基础示例',
+  combination: '组合示例',
+  counterexample: '反例',
+  'local-special': '地方特殊示例',
+};
+
+const EXAMPLE_CATEGORIES = Object.keys(
+  EXAMPLE_CATEGORY_LABELS,
+) as readonly EncyclopediaExampleCategory[];
+
 const STRUCTURE_LABELS: Readonly<Record<string, string>> = {
   'standard-meld-pair': '普通结构',
   'seven-pairs': '七对',
@@ -43,6 +71,21 @@ const STRUCTURE_LABELS: Readonly<Record<string, string>> = {
 
 function entryKey(entry: LoadedRuleEncyclopedia): string {
   return `${entry.manifest.ruleId}@${entry.manifest.ruleVersion}`;
+}
+
+function rulePath(entry: LoadedRuleEncyclopedia): string {
+  return `/rules/${encodeURIComponent(entry.manifest.ruleId)}/${encodeURIComponent(entry.manifest.ruleVersion)}`;
+}
+
+function patternPath(entry: LoadedRuleEncyclopedia, patternId: string): string {
+  return `${rulePath(entry)}/patterns/${encodeURIComponent(patternId)}`;
+}
+
+function expectedExampleText(example: EncyclopediaExampleDetail): string {
+  const { expected } = example.ruleCase;
+  if (expected.description !== undefined) return `预期：${expected.description}`;
+  if (expected.status === 'NOT_WINNING') return '预期：不是合法和牌结构';
+  return `预期：结构成立（${expected.structureKeys.join('、')}）`;
 }
 
 function ContentBlocks({ blocks }: Readonly<{ blocks: readonly EncyclopediaContentBlock[] }>) {
@@ -209,15 +252,62 @@ function RuleDetail({ entry }: Readonly<{ entry: LoadedRuleEncyclopedia }>) {
   );
 }
 
-function PatternCatalog({ rulePackage }: Readonly<{ rulePackage: RulePackageDefinition }>) {
-  const [selectedPatternId, setSelectedPatternId] = useState(
-    () => rulePackage.patterns[0]?.patternId ?? '',
+function PatternCatalog({
+  entry,
+  selectedPatternId,
+  currentPatternIds,
+}: Readonly<{
+  entry: LoadedRuleEncyclopedia;
+  selectedPatternId?: string | undefined;
+  currentPatternIds: ReadonlySet<string>;
+}>) {
+  const { rulePackage } = entry;
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('');
+  const [minimumValue, setMinimumValue] = useState<number | null>(null);
+  const [maximumValue, setMaximumValue] = useState<number | null>(null);
+  const [enabled, setEnabled] = useState<PatternEnabledFilter>('all');
+  const [currentRecognizedOnly, setCurrentRecognizedOnly] = useState(false);
+  const categories = useMemo(
+    () =>
+      [...new Set(rulePackage.patterns.map(getPatternCategory))].sort((left, right) => {
+        const leftValue = Number.parseFloat(left);
+        const rightValue = Number.parseFloat(right);
+        return rightValue - leftValue || left.localeCompare(right, 'zh-CN');
+      }),
+    [rulePackage],
   );
-  const selected = getPatternEncyclopediaDetail(rulePackage, selectedPatternId);
+  const filteredPatterns = useMemo(
+    () =>
+      filterEncyclopediaPatterns(
+        rulePackage.patterns,
+        { query, category, minimumValue, maximumValue, enabled, currentRecognizedOnly },
+        currentPatternIds,
+      ),
+    [
+      category,
+      currentPatternIds,
+      currentRecognizedOnly,
+      enabled,
+      maximumValue,
+      minimumValue,
+      query,
+      rulePackage.patterns,
+    ],
+  );
+  const fallbackPatternId = filteredPatterns[0]?.patternId ?? '';
+  const detailPatternId = selectedPatternId ?? fallbackPatternId;
+  const selected = getPatternEncyclopediaDetail(rulePackage, detailPatternId);
   const patternNames = useMemo(
     () => new Map(rulePackage.patterns.map(({ patternId, name }) => [patternId, name])),
     [rulePackage],
   );
+  const groupedPatterns = categories
+    .map((categoryName) => ({
+      categoryName,
+      patterns: filteredPatterns.filter((pattern) => getPatternCategory(pattern) === categoryName),
+    }))
+    .filter(({ patterns }) => patterns.length > 0);
 
   return (
     <section className="encyclopedia-card" aria-labelledby="pattern-catalog-title">
@@ -231,33 +321,113 @@ function PatternCatalog({ rulePackage }: Readonly<{ rulePackage: RulePackageDefi
       <p className="encyclopedia-note">
         番型名称、番值和启用状态直接读取当前 Engine 使用的 PatternDefinition。
       </p>
+      <div className="pattern-filter-panel" aria-label="番型搜索与筛选">
+        <label>
+          名称或别名
+          <input
+            aria-label="名称或别名"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="搜索番型"
+            type="search"
+            value={query}
+          />
+        </label>
+        <label>
+          类别
+          <select
+            aria-label="番型类别"
+            onChange={(event) => setCategory(event.target.value)}
+            value={category}
+          >
+            <option value="">全部类别</option>
+            {categories.map((categoryName) => (
+              <option key={categoryName} value={categoryName}>
+                {categoryName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          最低番值
+          <input
+            aria-label="最低番值"
+            min="0"
+            onChange={(event) =>
+              setMinimumValue(event.target.value === '' ? null : event.target.valueAsNumber)
+            }
+            type="number"
+            value={minimumValue ?? ''}
+          />
+        </label>
+        <label>
+          最高番值
+          <input
+            aria-label="最高番值"
+            min="0"
+            onChange={(event) =>
+              setMaximumValue(event.target.value === '' ? null : event.target.valueAsNumber)
+            }
+            type="number"
+            value={maximumValue ?? ''}
+          />
+        </label>
+        <label>
+          启用状态
+          <select
+            aria-label="番型启用状态"
+            onChange={(event) => setEnabled(event.target.value as PatternEnabledFilter)}
+            value={enabled}
+          >
+            <option value="all">全部</option>
+            <option value="enabled">已启用</option>
+            <option value="disabled">当前不支持</option>
+          </select>
+        </label>
+        <label className="pattern-current-filter">
+          <input
+            checked={currentRecognizedOnly}
+            onChange={(event) => setCurrentRecognizedOnly(event.target.checked)}
+            type="checkbox"
+          />
+          仅看当前牌面已识别番型
+        </label>
+      </div>
       <div className="pattern-catalog-layout">
         <ul className="pattern-catalog-list" aria-label="完整番表">
-          {rulePackage.patterns.map((pattern) => (
-            <li key={pattern.patternId}>
-              <button
-                aria-pressed={selectedPatternId === pattern.patternId}
-                className="pattern-catalog-button"
-                onClick={() => setSelectedPatternId(pattern.patternId)}
-                type="button"
-              >
-                <span>
-                  <strong>{pattern.name}</strong>
-                  <small>{pattern.aliases?.join('、') || '无别名'}</small>
-                </span>
-                <span>
-                  {String(pattern.value)} {pattern.unit}
-                  <small>{pattern.enabled ? '已启用' : '当前不支持'}</small>
-                </span>
-              </button>
-            </li>
-          ))}
+          {groupedPatterns.flatMap(({ categoryName, patterns }) => [
+            <li className="pattern-category-heading" key={`category-${categoryName}`}>
+              {categoryName}
+            </li>,
+            ...patterns.map((pattern) => (
+              <li key={pattern.patternId}>
+                <Link
+                  aria-current={detailPatternId === pattern.patternId ? 'page' : undefined}
+                  className="pattern-catalog-button"
+                  to={patternPath(entry, pattern.patternId)}
+                >
+                  <span>
+                    <strong>{pattern.name}</strong>
+                    <small>{pattern.aliases?.join('、') || '无别名'}</small>
+                  </span>
+                  <span>
+                    {String(pattern.value)} {pattern.unit}
+                    <small>{pattern.enabled ? '已启用' : '当前不支持'}</small>
+                  </span>
+                </Link>
+              </li>
+            )),
+          ])}
         </ul>
+
+        {filteredPatterns.length === 0 ? (
+          <p className="empty-state">没有符合当前搜索与筛选条件的番型。</p>
+        ) : null}
 
         {selected === undefined ? null : (
           <article className="pattern-detail" aria-labelledby="pattern-detail-title">
             <p className="section-kicker">番型详情</p>
             <h3 id="pattern-detail-title">{selected.pattern.name}</h3>
+            <Link to={rulePath(entry)}>返回规则详情</Link>
             <dl className="encyclopedia-facts">
               <div>
                 <dt>别名</dt>
@@ -324,22 +494,160 @@ function PatternCatalog({ rulePackage }: Readonly<{ rulePackage: RulePackageDefi
   );
 }
 
-export function EncyclopediaPage({ repository }: EncyclopediaPageProps) {
+function ExampleGallery({
+  entry,
+  runtime,
+  ruleCases,
+}: Readonly<{
+  entry: LoadedRuleEncyclopedia;
+  runtime?: CalculatorRuntime | undefined;
+  ruleCases: readonly EncyclopediaRuleCase[];
+}>) {
+  const navigate = useNavigate();
+  const [pendingExample, setPendingExample] = useState<EncyclopediaExampleDetail | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const examples = useMemo(
+    () => (ruleCases.length === 0 ? [] : listEncyclopediaExamples(entry.rulePackage, ruleCases)),
+    [entry.rulePackage, ruleCases],
+  );
+  const canBringIntoCalculator =
+    runtime !== undefined && canBringEncyclopediaExampleIntoCalculator(entry.manifest);
+
+  const replaceWithExample = async (example: EncyclopediaExampleDetail): Promise<void> => {
+    if (runtime === undefined || !canBringEncyclopediaExampleIntoCalculator(entry.manifest)) return;
+
+    const catalogEntry = (await runtime.ruleRepository.listRuleCatalog()).find(
+      ({ manifest }) =>
+        manifest.ruleId === entry.manifest.ruleId &&
+        manifest.ruleVersion === entry.manifest.ruleVersion,
+    );
+    const result = await runtime.replaceGuard.prepareToReplaceCalculator(
+      'encyclopedia-example',
+      () => true,
+      async () => {
+        if (entry.manifest.status === 'test' && catalogEntry !== undefined) {
+          await confirmTestingRule(
+            runtime.preferencesPort,
+            entry.manifest,
+            catalogEntry.resultImpactVersion,
+          );
+        }
+        return createEncyclopediaExampleReplacement(
+          runtime.store.getState().document,
+          entry.rulePackage,
+          example,
+        );
+      },
+    );
+    setPendingExample(null);
+    if (result.status === 'replaced') {
+      void navigate('/calculator');
+    } else if (result.status === 'draft-protection-failed') {
+      setNotice('当前计算保护失败，示例未带入。');
+    }
+  };
+
+  return (
+    <section className="encyclopedia-card" aria-labelledby="encyclopedia-examples-title">
+      <p className="section-kicker">Rule Case 同源</p>
+      <h2 id="encyclopedia-examples-title">牌例</h2>
+      <p className="encyclopedia-note">
+        示例牌面和预期结果读取已通过验证的 Rule
+        Case；带入后仅形成临时、可编辑的计算状态，不会自动保存。
+      </p>
+      {notice === null ? null : <p role="alert">{notice}</p>}
+      <div className="encyclopedia-example-grid">
+        {EXAMPLE_CATEGORIES.map((category) => {
+          const categoryExamples = examples.filter(
+            ({ definition }) => definition.category === category,
+          );
+          return (
+            <section key={category} aria-labelledby={`example-category-${category}`}>
+              <h3 id={`example-category-${category}`}>{EXAMPLE_CATEGORY_LABELS[category]}</h3>
+              {categoryExamples.length === 0 ? (
+                <p className="empty-state">当前规则暂无此类示例。</p>
+              ) : (
+                <ul>
+                  {categoryExamples.map((example) => (
+                    <li key={example.definition.exampleId}>
+                      <h4>{example.definition.title}</h4>
+                      <p>{example.ruleCase.title}</p>
+                      <p>{expectedExampleText(example)}</p>
+                      <button
+                        disabled={!canBringIntoCalculator}
+                        onClick={() => setPendingExample(example)}
+                        type="button"
+                      >
+                        {entry.manifest.status === 'development'
+                          ? '开发中规则仅供查看'
+                          : '带入计算器'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          );
+        })}
+      </div>
+
+      {pendingExample === null ? null : (
+        <div
+          aria-labelledby="example-replace-title"
+          aria-modal="true"
+          className="dialog-backdrop"
+          role="dialog"
+        >
+          <section className="dialog-card">
+            <p className="section-kicker">替换保护</p>
+            <h2 id="example-replace-title">带入百科示例？</h2>
+            <p>这会保护并替换当前计算状态；示例只作为临时计算内容，不会自动保存。</p>
+            {entry.manifest.status === 'test' ? (
+              <p>当前规则为测试版；继续即确认以该测试规则进行本次计算。</p>
+            ) : null}
+            <div className="dialog-actions">
+              <button
+                className="danger-action"
+                onClick={() => void replaceWithExample(pendingExample)}
+                type="button"
+              >
+                确认带入
+              </button>
+              <button
+                className="secondary-action"
+                onClick={() => setPendingExample(null)}
+                type="button"
+              >
+                取消
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function EncyclopediaPage({ repository, runtime, ruleCases }: EncyclopediaPageProps) {
+  const params = useParams<{
+    ruleId?: string;
+    ruleVersion?: string;
+    patternId?: string;
+  }>();
   const [entries, setEntries] = useState<readonly LoadedRuleEncyclopedia[]>([]);
   const [status, setStatus] = useState<RuleStatus | 'all'>('all');
-  const [selectedRuleKey, setSelectedRuleKey] = useState('');
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const activeRepository = runtime?.ruleRepository ?? repository;
 
   useEffect(() => {
-    if (repository === undefined) {
+    if (activeRepository === undefined) {
       return;
     }
     let active = true;
-    loadRuleEncyclopedias(repository).then(
+    loadRuleEncyclopedias(activeRepository).then(
       (loaded) => {
         if (!active) return;
         setEntries(loaded);
-        setSelectedRuleKey((current) => current || (loaded[0] ? entryKey(loaded[0]) : ''));
         setLoadState('ready');
       },
       () => {
@@ -349,11 +657,20 @@ export function EncyclopediaPage({ repository }: EncyclopediaPageProps) {
     return () => {
       active = false;
     };
-  }, [repository]);
+  }, [activeRepository]);
 
   const filteredEntries = filterRuleEncyclopediasByStatus(entries, status);
   const selectedEntry =
-    filteredEntries.find((entry) => entryKey(entry) === selectedRuleKey) ?? filteredEntries[0];
+    params.ruleId === undefined || params.ruleVersion === undefined
+      ? filteredEntries[0]
+      : filteredEntries.find(
+          ({ manifest }) =>
+            manifest.ruleId === params.ruleId && manifest.ruleVersion === params.ruleVersion,
+        );
+  const currentPatternIds = getRecognizedPatternIds(
+    runtime?.store.getState().analysisResult ?? null,
+  );
+  const availableRuleCases = runtime?.encyclopediaRuleCases ?? ruleCases ?? [];
 
   return (
     <section className="page-shell encyclopedia-page" aria-labelledby="encyclopedia-title">
@@ -396,10 +713,13 @@ export function EncyclopediaPage({ repository }: EncyclopediaPageProps) {
               <ul aria-label="规则列表" className="rule-encyclopedia-list">
                 {filteredEntries.map((entry) => (
                   <li key={entryKey(entry)}>
-                    <button
-                      aria-pressed={selectedRuleKey === entryKey(entry)}
-                      onClick={() => setSelectedRuleKey(entryKey(entry))}
-                      type="button"
+                    <Link
+                      aria-current={
+                        selectedEntry !== undefined && entryKey(selectedEntry) === entryKey(entry)
+                          ? 'page'
+                          : undefined
+                      }
+                      to={rulePath(entry)}
                     >
                       <span>
                         <strong>{entry.manifest.displayName}</strong>
@@ -408,7 +728,7 @@ export function EncyclopediaPage({ repository }: EncyclopediaPageProps) {
                       <span className={`status-badge status-badge--${entry.manifest.status}`}>
                         {STATUS_LABELS[entry.manifest.status]}
                       </span>
-                    </button>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -420,10 +740,20 @@ export function EncyclopediaPage({ repository }: EncyclopediaPageProps) {
               <RuleDetail entry={selectedEntry} />
               <PatternCatalog
                 key={entryKey(selectedEntry)}
-                rulePackage={selectedEntry.rulePackage}
+                entry={selectedEntry}
+                selectedPatternId={params.patternId}
+                currentPatternIds={currentPatternIds}
+              />
+              <ExampleGallery
+                entry={selectedEntry}
+                runtime={runtime}
+                ruleCases={availableRuleCases}
               />
             </>
           )}
+          {selectedEntry === undefined && params.ruleId !== undefined ? (
+            <p role="alert">该规则或版本不存在，或已被当前状态筛选隐藏。</p>
+          ) : null}
         </>
       ) : null}
     </section>

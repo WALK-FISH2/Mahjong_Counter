@@ -20,6 +20,8 @@ export const commonSimpleRuleCorpusIndexInput: unknown = {
     { caseId: 'structure-declared-chow-positive', kind: 'structure' },
     { caseId: 'structure-declared-kong-positive', kind: 'structure' },
     { caseId: 'structure-winning-placement-positive', kind: 'structure' },
+    { caseId: 'encyclopedia-big-four-winds-relation', kind: 'relation' },
+    { caseId: 'encyclopedia-local-special-boundary', kind: 'structure' },
     ...COMMON_SIMPLE_PATTERN_RULE_CASES.map(({ id, patternId, polarity }) => ({
       caseId: id,
       patternId,

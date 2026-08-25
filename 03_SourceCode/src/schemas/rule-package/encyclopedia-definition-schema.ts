@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
-import type {
-  EncyclopediaContentBlock,
-  EncyclopediaDefinition,
-  EncyclopediaExampleDefinition,
-  PatternArticleDefinition,
-  SourceArticleDefinition,
+import {
+  ENCYCLOPEDIA_EXAMPLE_CATEGORIES,
+  type EncyclopediaContentBlock,
+  type EncyclopediaDefinition,
+  type EncyclopediaExampleDefinition,
+  type PatternArticleDefinition,
+  type SourceArticleDefinition,
 } from '../../domain/rules/encyclopedia-definition';
 
 const MAX_CONTENT_BLOCKS = 2048;
@@ -36,6 +37,7 @@ const encyclopediaExampleSchema = z.strictObject({
   exampleId: stableIdSchema,
   title: z.string().trim().min(1).max(256),
   ruleCaseId: stableIdSchema,
+  category: z.enum(ENCYCLOPEDIA_EXAMPLE_CATEGORIES),
 }) satisfies z.ZodType<EncyclopediaExampleDefinition>;
 
 const sourceArticleSchema = z.strictObject({

@@ -263,7 +263,7 @@ const rulePackageData = {
       ],
     },
     releasedAt: '2026-08-10T00:00:00.000Z',
-    contentHash: '4f53c21eb71e5a0b5b007f345adf0d31e09a9a8ebca9f4cb21959553c16cfd2c',
+    contentHash: 'dbbbae8810ddfb22a271d4f529e84ac107731e55df319b2e6eec6772539fd14e',
   },
   tileSet: {
     enabledTiles: ENABLED_TILES,
@@ -542,7 +542,38 @@ const rulePackageData = {
       },
     ],
     patternArticles: PATTERN_ARTICLES,
-    examples: [],
+    examples: [
+      {
+        exampleId: 'basic-standard-hand',
+        title: '基础示例：四副面子与一对将牌',
+        ruleCaseId: 'structure-standard-positive',
+        category: 'basic',
+      },
+      {
+        exampleId: 'combination-multiple-structures',
+        title: '组合示例：同一牌面具有多种结构解释',
+        ruleCaseId: 'structure-multiple-types-positive',
+        category: 'combination',
+      },
+      {
+        exampleId: 'combination-covered-patterns',
+        title: '包含与不重复：大四喜及下位番型',
+        ruleCaseId: 'encyclopedia-big-four-winds-relation',
+        category: 'combination',
+      },
+      {
+        exampleId: 'counterexample-missing-pair',
+        title: '反例：缺少合法将牌',
+        ruleCaseId: 'structure-standard-negative',
+        category: 'counterexample',
+      },
+      {
+        exampleId: 'local-special-scope-boundary',
+        title: '地方特殊边界：平台加倍不进入结果',
+        ruleCaseId: 'encyclopedia-local-special-boundary',
+        category: 'local-special',
+      },
+    ],
     sourceArticles: SOURCES.map(({ sourceId, note }) => ({
       sourceId,
       blocks: [{ type: 'paragraph', text: note }],
