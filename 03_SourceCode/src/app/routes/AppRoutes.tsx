@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { CalculatorPage } from '../../pages/calculator/CalculatorPage';
 import { EncyclopediaPage } from '../../pages/encyclopedia/EncyclopediaPage';
 import { SavedExamplesPage } from '../../pages/saved-examples/SavedExamplesPage';
+import { SavedExampleDetailPage } from '../../pages/saved-examples/SavedExampleDetailPage';
 import { SettingsPage } from '../../pages/settings/SettingsPage';
 import { AppLayout } from './AppLayout';
 import type { CalculatorStore } from '../../application/calculator/calculator-store';
@@ -44,7 +45,14 @@ export function AppRoutes({
           path="rules/:ruleId/:ruleVersion/patterns/:patternId"
           element={<EncyclopediaPage runtime={calculatorRuntime} />}
         />
-        <Route path="saved" element={<SavedExamplesPage />} />
+        <Route
+          path="saved"
+          element={<SavedExamplesPage service={calculatorRuntime?.savedExamples} />}
+        />
+        <Route
+          path="saved/:exampleId"
+          element={<SavedExampleDetailPage service={calculatorRuntime?.savedExamples} />}
+        />
         <Route
           path="settings"
           element={

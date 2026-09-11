@@ -11,13 +11,13 @@ import type { ExplanationNode } from '../../domain/engine/explanation';
 import type { Meld } from '../../domain/mahjong/meld';
 import type { HandSnapshot } from '../../domain/mahjong/hand';
 import { getTileMetadata, type TileCode } from '../../domain/mahjong/tile';
-import type { RulePackageDefinition } from '../../domain/rules/rule-package';
+import type { ResultDisplaySnapshot } from '../../application/examples/persistence-models';
 import { TileFace } from '../tile-input/TileFace';
 
 export type AnalysisResultProps = Readonly<{
   result: SystemEvaluation;
   selectedCandidateId: string | null;
-  rulePackage: RulePackageDefinition;
+  rulePackage: ResultDisplaySnapshot;
   originalHand: HandSnapshot;
   onSelectCandidate: (candidateId: string) => void;
   onOpenAdjustments: () => void;
@@ -29,6 +29,8 @@ export type AnalysisResultProps = Readonly<{
   onApplyFanAdjustment?: (patternId: string, action: 'exclude' | 'force-include') => void;
   onClearFanAdjustment?: (patternId: string) => void;
   onContinueDiscardAnalysis?: () => void;
+  onSave?: () => void;
+  readOnly?: boolean;
 }>;
 
 const RELATION_REASON_LABELS: Readonly<Record<string, string>> = Object.freeze({
@@ -186,9 +188,11 @@ function PatternSummary({
   userAdjustedResult,
   onApplyFanAdjustment,
   onClearFanAdjustment,
+  readOnly,
 }: Readonly<{
   candidate: CandidateResult;
-  rulePackage: RulePackageDefinition;
+  rulePackage: ResultDisplaySnapshot;
+  readOnly: boolean;
   userAdjustedResult: UserAdjustedScore | null;
   onApplyFanAdjustment:
     ((patternId: string, action: 'exclude' | 'force-include') => void) | undefined;
@@ -229,6 +233,7 @@ function PatternSummary({
     baseStatus: 'COUNTED' | 'EXCLUDED',
     reason: string,
   ) => {
+    if (readOnly) return null;
     if (adjustmentAction !== undefined) {
       return (
         <button
@@ -371,7 +376,7 @@ function NodeList({
 function Explanation({
   candidate,
   rulePackage,
-}: Readonly<{ candidate: CandidateResult; rulePackage: RulePackageDefinition }>) {
+}: Readonly<{ candidate: CandidateResult; rulePackage: ResultDisplaySnapshot }>) {
   const explanation = candidate.explanation;
   const sources = new Map(rulePackage.sources.map((source) => [source.sourceId, source]));
   return (
@@ -465,6 +470,8 @@ export function AnalysisResult({
   onApplyFanAdjustment,
   onClearFanAdjustment,
   onContinueDiscardAnalysis,
+  onSave,
+  readOnly = false,
 }: AnalysisResultProps) {
   const candidate = selectedCandidate(result, selectedCandidateId);
   const statusContent = {
@@ -540,6 +547,7 @@ export function AnalysisResult({
           <OriginalHand hand={originalHand} />
           <LegalityDetails candidate={candidate} />
           <PatternSummary
+            readOnly={readOnly}
             candidate={candidate}
             rulePackage={rulePackage}
             userAdjustedResult={activeLayer === 'user-adjustment' ? userAdjustedResult : null}
@@ -572,13 +580,15 @@ export function AnalysisResult({
           <Explanation candidate={candidate} rulePackage={rulePackage} />
         </>
       )}
-      <button className="secondary-action" type="button" onClick={onOpenAdjustments}>
-        临时调整本次规则
-      </button>
-      {actionPolicy !== undefined && (
+      {!readOnly && (
+        <button className="secondary-action" type="button" onClick={onOpenAdjustments}>
+          临时调整本次规则
+        </button>
+      )}
+      {!readOnly && actionPolicy !== undefined && (
         <div className="result-actions" aria-label="结果操作">
           {actionPolicy.save && (
-            <button type="button" className="primary-action">
+            <button type="button" className="primary-action" onClick={onSave}>
               保存牌例
             </button>
           )}

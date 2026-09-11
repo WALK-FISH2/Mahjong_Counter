@@ -26,7 +26,10 @@ import {
   createQuickCalcEvaluator,
   type QuickCalcEvaluator,
 } from '../../application/calculator/quick-calc';
-import { APP_VERSION, ENGINE_VERSION } from '../version';
+import { APP_VERSION, ENGINE_VERSION, DATABASE_SCHEMA_VERSION } from '../version';
+import { createSavedExampleService, type SavedExampleService } from '../../application/examples';
+import { MahjongDatabase } from '../../infrastructure/db/mahjong-database';
+import { DexieSavedExampleRepository } from '../../infrastructure/db/dexie-saved-example-repository';
 import { createBrowserEngineWorkerPort } from '../../infrastructure/engine-worker';
 import {
   COMMON_SIMPLE_RULE_REF,
@@ -54,6 +57,7 @@ export type CalculatorRuntime = Readonly<{
   engineErrorRecovery: EngineErrorRecoveryService;
   analysisLifecycle: AnalysisLifecycleCoordinator;
   encyclopediaRuleCases: readonly EncyclopediaRuleCase[];
+  savedExamples: SavedExampleService;
 }>;
 
 let calculatorRuntimePromise: Promise<CalculatorRuntime> | undefined;
@@ -90,6 +94,18 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
       runAnalysis: engineErrorRecovery.runAnalysis,
     });
 
+    const replaceGuard = createCalculatorReplaceGuard(store, draftPort);
+    // Dexie opens lazily. Storage failure must not reject Calculator/Encyclopedia bootstrap.
+    const savedExamples = createSavedExampleService({
+      calculator: store,
+      repository: new DexieSavedExampleRepository(new MahjongDatabase()),
+      rules: ruleRepository,
+      replaceGuard,
+      clock: { now: () => new Date().toISOString() },
+      ids: { next: () => crypto.randomUUID() },
+      engineVersion: ENGINE_VERSION,
+      databaseSchemaVersion: DATABASE_SCHEMA_VERSION,
+    });
     return Object.freeze({
       store,
       quickCalcEvaluator: createQuickCalcEvaluator({
@@ -98,7 +114,8 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
       }),
       ruleRepository,
       preferencesPort,
-      replaceGuard: createCalculatorReplaceGuard(store, draftPort),
+      replaceGuard,
+      savedExamples,
       readyAnalysisService: createReadyAnalysisService({
         client: engineWorkerClient,
         engineVersion: ENGINE_VERSION,

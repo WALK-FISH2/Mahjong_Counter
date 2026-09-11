@@ -1447,7 +1447,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T901 初始化 Dexie 数据库
 
-- 状态：TODO
+- 状态：DONE
 - 目标：建立 saved/trash/draft/snapshot/meta 表。
 - 依赖：M8
 - 测试：DB open/close
@@ -1455,7 +1455,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T902 实现 SavedExampleRecord
 
-- 状态：TODO
+- 状态：DONE
 - 目标：保存完整 Calculator + Result Snapshot。
 - 依赖：T901、T612
 - 测试：roundtrip
@@ -1463,7 +1463,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T903 实现默认名称生成器
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则名 + 1～2 个主要番型。
 - 依赖：T902
 - 测试：排除普通附加项
@@ -1471,7 +1471,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T904 实现保存牌例 Use Case
 
-- 状态：TODO
+- 状态：DONE
 - 目标：只有正式合法当前 revision 结果可由用户主动通过仅含名称的表单保存。
 - 依赖：T902～T903
 - 验收：
@@ -1483,7 +1483,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T905 实现 Saved 列表
 
-- 状态：TODO
+- 状态：DONE
 - 目标：倒序、搜索、规则筛选、排序。
 - 依赖：T904
 - 测试：列表行为
@@ -1491,7 +1491,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T906 实现只读打开与编辑副本
 
-- 状态：TODO
+- 状态：DONE
 - 目标：默认只读，编辑进入临时副本。
 - 依赖：T905
 - 测试：原记录不自动修改
@@ -1499,7 +1499,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T907 实现更新原记录/另存/放弃
 
-- 状态：TODO
+- 状态：DONE
 - 目标：显式决定编辑结果。
 - 依赖：T906
 - 测试：三种路径

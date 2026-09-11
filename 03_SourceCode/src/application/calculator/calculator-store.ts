@@ -178,6 +178,10 @@ export type CalculatorState = Readonly<{
   undoHand: HandSnapshot | null;
   analysisStatus: 'idle' | 'analyzing' | 'completed';
   analysisResult: SystemEvaluation | null;
+  analysisRevision: number | null;
+  analysisDocument: CalculatorDocument | null;
+  /** Runtime replacement identity; never serialized into the Domain document. */
+  documentEpoch: number;
   layeredEvaluation: LayeredEvaluation | null;
   activeEvaluationLayer: EvaluationLayer;
   selectedAnalysisCandidateId: string | null;
@@ -727,6 +731,9 @@ export function createCalculatorStore(
       undoHand: null,
       analysisStatus: 'idle',
       analysisResult: null,
+      analysisRevision: null,
+      analysisDocument: null,
+      documentEpoch: 0,
       layeredEvaluation: null,
       activeEvaluationLayer: 'preset',
       selectedAnalysisCandidateId: null,
@@ -1255,13 +1262,21 @@ export function createCalculatorStore(
             });
           }
         } catch {
-          if (get().document.revision !== revision || get().analysisStatus !== 'analyzing') {
+          if (
+            get().document !== current.document ||
+            get().document.revision !== revision ||
+            get().analysisStatus !== 'analyzing'
+          ) {
             return ACCEPTED_INPUT;
           }
           set({ analysisStatus: 'idle', analysisResult: null });
           return rejectedInput('ANALYSIS_FAILED');
         }
-        if (get().document.revision !== revision || get().analysisStatus !== 'analyzing') {
+        if (
+          get().document !== current.document ||
+          get().document.revision !== revision ||
+          get().analysisStatus !== 'analyzing'
+        ) {
           return ACCEPTED_INPUT;
         }
         let layeredEvaluation: LayeredEvaluation = Object.freeze({
@@ -1301,6 +1316,8 @@ export function createCalculatorStore(
         }
         set({
           analysisStatus: 'completed',
+          analysisRevision: revision,
+          analysisDocument: current.document,
           analysisResult: displayed,
           layeredEvaluation,
           activeEvaluationLayer:
@@ -1397,7 +1414,11 @@ export function createCalculatorStore(
       applyFanAdjustment: (patternId, action) => {
         const current = get();
         const layered = current.layeredEvaluation;
-        if (layered === null || evaluationCapabilities === undefined) {
+        if (
+          layered === null ||
+          evaluationCapabilities === undefined ||
+          current.analysisDocument !== current.document
+        ) {
           return rejectedInput('ANALYSIS_NOT_READY');
         }
         const baseLayer = layered.sessionRule === undefined ? 'preset' : 'session-rule';
@@ -1432,8 +1453,13 @@ export function createCalculatorStore(
           scoringStrategies: evaluationCapabilities.scoringStrategies,
           extraScoringCalculators: evaluationCapabilities.extraScoringCalculators,
         });
+        const document = reviseCalculatorDocument(current.document, {
+          fanAdjustments: adjustments,
+        });
         set({
-          document: reviseCalculatorDocument(current.document, { fanAdjustments: adjustments }),
+          document,
+          analysisRevision: document.revision,
+          analysisDocument: document,
           layeredEvaluation: Object.freeze({
             ...layered,
             userAdjustment: Object.freeze({ baseLayer, adjustments, result }),
@@ -1444,6 +1470,7 @@ export function createCalculatorStore(
       },
       clearFanAdjustment: (patternId) => {
         const current = get();
+        if (current.analysisDocument !== current.document) return false;
         if (!current.document.fanAdjustments.some((item) => item.patternId === patternId)) {
           return false;
         }
@@ -1480,8 +1507,13 @@ export function createCalculatorStore(
                 ...layered,
                 userAdjustment: Object.freeze({ baseLayer, adjustments, result }),
               });
+        const document = reviseCalculatorDocument(current.document, {
+          fanAdjustments: adjustments,
+        });
         set({
-          document: reviseCalculatorDocument(current.document, { fanAdjustments: adjustments }),
+          document,
+          analysisRevision: document.revision,
+          analysisDocument: document,
           layeredEvaluation: nextLayered,
           activeEvaluationLayer: adjustments.length === 0 ? baseLayer : 'user-adjustment',
         });
@@ -1497,6 +1529,7 @@ export function createCalculatorStore(
         }
         set({
           document: nextDocument,
+          documentEpoch: current.documentEpoch + 1,
           rulePackage: nextRulePackage,
           ruleSwitchUndo: recordRuleSwitchUndo
             ? Object.freeze({
@@ -1521,6 +1554,7 @@ export function createCalculatorStore(
         if (current.ruleSwitchUndo === null) return false;
         set({
           document: current.ruleSwitchUndo.document,
+          documentEpoch: current.documentEpoch + 1,
           rulePackage: current.ruleSwitchUndo.rulePackage,
           ruleSwitchUndo: null,
           concealedSortMode: 'input-order',

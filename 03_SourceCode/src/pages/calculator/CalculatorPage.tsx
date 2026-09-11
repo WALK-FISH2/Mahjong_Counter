@@ -45,6 +45,8 @@ import { TestingRuleConfirmationDialog } from '../../features/rule-switch/Testin
 import { navigationStore } from '../../app/routes/navigation-store';
 import { getResultActionPolicy } from '../../application/calculator/result-action-policy';
 import { AnalysisResult } from '../../features/analysis-result/AnalysisResult';
+import { canSaveExample } from '../../application/examples';
+import { SavedExampleEditActions } from '../../features/saved-examples/SavedExampleEditActions';
 import { EngineErrorRecoveryPanel } from '../../features/analysis-result/EngineErrorRecoveryPanel';
 import { TemporaryRuleAdjustmentDialog } from '../../features/rule-adjustment/TemporaryRuleAdjustmentDialog';
 import { QuickCalcPanel } from '../../features/quick-calc/QuickCalcPanel';
@@ -173,6 +175,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
   >(null);
   const [replacementPrompt, setReplacementPrompt] = useState<ReplacementPrompt | null>(null);
   const [showQuickCalc, setShowQuickCalc] = useState(false);
+  const [saveMode, setSaveMode] = useState<'new' | 'update' | null>(null);
   const [readyAnalysisStatus, setReadyAnalysisStatus] = useState<
     'idle' | 'analyzing' | 'result' | 'error'
   >('idle');
@@ -856,7 +859,11 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                       ]
                 }
                 userAdjustedResult={layeredEvaluation?.userAdjustment?.result ?? null}
-                actionPolicy={getResultActionPolicy(analysisResult.status)}
+                actionPolicy={{
+                  ...getResultActionPolicy(analysisResult.status),
+                  save: !showQuickCalc && !legalWinDiscardView && canSaveExample(store.getState()),
+                }}
+                onSave={() => setSaveMode('new')}
                 onSelectLayer={setActiveEvaluationLayer}
                 onApplyFanAdjustment={(patternId, action) => {
                   applyResult(
@@ -872,6 +879,16 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                 {...(runtime === undefined
                   ? {}
                   : { onContinueDiscardAnalysis: () => void runLegalWinDiscardAnalysis() })}
+              />
+            )}
+            {runtime !== undefined && (
+              <SavedExampleEditActions
+                service={runtime.savedExamples}
+                calculator={store}
+                mode={saveMode}
+                onOpen={setSaveMode}
+                onClose={() => setSaveMode(null)}
+                formalVisible={!showQuickCalc && !legalWinDiscardView}
               />
             )}
           </section>
