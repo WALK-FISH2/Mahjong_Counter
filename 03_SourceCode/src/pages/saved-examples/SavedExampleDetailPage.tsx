@@ -27,6 +27,18 @@ function Detail({
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [compatibility, setCompatibility] = useState<
+    'checking' | 'compatible' | 'read-only-legacy'
+  >('checking');
+  useEffect(() => {
+    let active = true;
+    void service.compatibility(record).then((value) => {
+      if (active) setCompatibility(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [service, record]);
   const navigate = useNavigate();
   const evaluation =
     layer === 'preset'
@@ -39,6 +51,11 @@ function Detail({
   return (
     <>
       <h2>{record.name}</h2>
+      {compatibility === 'read-only-legacy' && (
+        <p role="status">
+          历史牌例只读（read-only-legacy）：保存时规则或引擎不兼容。以下为保存时结果，未重算，也未切换到最新规则。
+        </p>
+      )}
       <p>
         只读查看 · {snapshot.display.ruleName} · {record.ruleRef.ruleVersion} · 引擎{' '}
         {record.engineVersion}
@@ -151,7 +168,7 @@ function Detail({
       <button
         className="primary-action"
         type="button"
-        disabled={busy}
+        disabled={busy || compatibility !== 'compatible'}
         onClick={() => setConfirm(true)}
       >
         编辑牌例

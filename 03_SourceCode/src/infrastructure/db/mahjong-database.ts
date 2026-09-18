@@ -11,12 +11,18 @@ export const DATABASE_STORES = {
 } as const;
 
 export class MahjongDatabase extends Dexie {
-  // Reads remain unknown until schema validation. Other stores are empty scaffolding in T901.
+  // Every persisted value remains unknown until schema validation.
   readonly savedExamples: Table<unknown, string>;
+  readonly trashExamples: Table<unknown, string>;
+  readonly draft: Table<unknown, string>;
+  readonly ruleSnapshots: Table<unknown, string>;
 
   constructor(name = 'MahjongFanCalculatorDB', options?: ConstructorParameters<typeof Dexie>[1]) {
     super(name, options);
     this.version(DATABASE_SCHEMA_VERSION).stores(DATABASE_STORES);
     this.savedExamples = this.table('savedExamples');
+    this.trashExamples = this.table('trashExamples');
+    this.draft = this.table('draft');
+    this.ruleSnapshots = this.table('ruleSnapshots');
   }
 }

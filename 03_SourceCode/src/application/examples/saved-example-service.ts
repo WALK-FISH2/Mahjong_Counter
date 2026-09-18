@@ -4,7 +4,11 @@ import type {
   createCalculatorReplaceGuard,
   ReplaceCalculatorConfirmation,
 } from '../calculator/replace-calculator';
-import type { RuleRepository } from '../rules/rule-repository';
+import { RuleRepositoryError, type RuleRepository } from '../rules/rule-repository';
+import type { RulePackageDefinition } from '../../domain/rules/rule-package';
+import type { RuleSnapshotPort } from '../persistence/rule-snapshot-port';
+import type { StorageCapability } from '../persistence/storage-capability';
+import type { TrashExampleRecord } from '../persistence/persistence-models';
 import {
   createCalculatorDocument,
   type CalculatorDocument,
@@ -16,6 +20,7 @@ import {
   type SavedExampleRepository,
   type ClockPort,
   type IdGeneratorPort,
+  type TrashRepository,
 } from './saved-example-repository';
 import { canSaveExample } from './saved-example-policy';
 import {
@@ -69,6 +74,11 @@ export function createSavedExampleService(
     ids: IdGeneratorPort;
     engineVersion: string;
     databaseSchemaVersion: number;
+    snapshots?: RuleSnapshotPort;
+    trash?: TrashRepository;
+    storage?: StorageCapability;
+    canEdit?: () => boolean;
+    canUseRule?: (rule: RulePackageDefinition) => boolean;
   }>,
 ) {
   const session = createAppStore<SavedSession>(() => ({
@@ -83,6 +93,8 @@ export function createSavedExampleService(
   });
 
   async function save(name: string, mode: 'new' | 'update' = 'new'): Promise<SavedExampleRecord> {
+    input.storage?.requirePersistence();
+    if (input.canEdit?.() === false) throw new SavedExampleError('SAVE_NOT_ALLOWED');
     if (session.getState().busy) throw new SavedExampleError('BUSY');
     if (name.trim().length === 0 || name.length > 256) throw new SavedExampleError('INVALID_NAME');
     const state = input.calculator.getState();
@@ -103,8 +115,10 @@ export function createSavedExampleService(
     });
     session.setState({ busy: true });
     try {
-      if (original === null) await input.repository.add(record);
-      else await input.repository.update(record, original);
+      const snapshot = await input.snapshots?.capture(state.rulePackage);
+      if (input.canEdit?.() === false) throw new SavedExampleError('SAVE_NOT_ALLOWED');
+      if (original === null) await input.repository.add(record, snapshot);
+      else await input.repository.update(record, original, snapshot);
       // Do not associate an in-flight save with a replacement document.
       if (input.calculator.getState().documentEpoch === state.documentEpoch) {
         session.setState({ editingOriginal: record, savedDocument: state.document });
@@ -114,13 +128,35 @@ export function createSavedExampleService(
       session.setState({ busy: false });
     }
   }
+  async function resolveHistoricalRule(record: SavedExampleRecord): Promise<RulePackageDefinition> {
+    // Different Engine versions are not assumed equivalent without an explicit compatibility contract.
+    if (record.engineVersion !== input.engineVersion)
+      throw new SavedExampleError('RULE_UNAVAILABLE');
+    let rule: RulePackageDefinition | null;
+    try {
+      rule = await input.rules.getInstalledRule(record.ruleRef);
+    } catch (error) {
+      if (!(error instanceof RuleRepositoryError) || error.reasonCode !== 'RULE_NOT_INSTALLED')
+        throw error;
+      rule = (await input.snapshots?.load(record)) ?? null;
+    }
+    if (
+      rule === null ||
+      rule.manifest.contentHash !== record.resultSnapshot.display.ruleContentHash ||
+      input.canUseRule?.(rule) === false
+    )
+      throw new SavedExampleError('RULE_UNAVAILABLE');
+    return rule;
+  }
   async function edit(record: SavedExampleRecord, confirm: ReplaceCalculatorConfirmation) {
+    if (input.canEdit?.() === false) throw new SavedExampleError('SAVE_NOT_ALLOWED');
     const currentDocument = input.calculator.getState().document;
     const result = await input.replaceGuard.prepareToReplaceCalculator(
       'saved-example',
       confirm,
       async () => {
-        const rulePackage = await input.rules.getInstalledRule(record.ruleRef);
+        const rulePackage = await resolveHistoricalRule(record);
+        if (input.canEdit?.() === false) throw new SavedExampleError('SAVE_NOT_ALLOWED');
         if (input.calculator.getState().document !== currentDocument)
           throw new SavedExampleError('CALCULATOR_CHANGED');
         if (rulePackage.manifest.contentHash !== record.resultSnapshot.display.ruleContentHash)
@@ -155,6 +191,35 @@ export function createSavedExampleService(
     save,
     edit,
     discard,
+    resolveHistoricalRule,
+    async compatibility(record: SavedExampleRecord): Promise<'compatible' | 'read-only-legacy'> {
+      try {
+        await resolveHistoricalRule(record);
+        return 'compatible';
+      } catch {
+        return 'read-only-legacy';
+      }
+    },
+    restoreEditingOrigin(original: SavedExampleRecord | null) {
+      session.setState({ editingOriginal: original, savedDocument: null });
+    },
+    async listTrash() {
+      return input.trash?.listTrash() ?? [];
+    },
+    async trash(record: SavedExampleRecord) {
+      if (input.trash === undefined) throw new SavedExampleError('STORAGE_UNAVAILABLE');
+      await input.trash.moveToTrash(record, input.clock.now());
+    },
+    async restoreTrash(record: TrashExampleRecord) {
+      if (input.trash === undefined) throw new SavedExampleError('STORAGE_UNAVAILABLE');
+      await input.trash.restoreTrash(record);
+    },
+    async permanentlyDelete(record: TrashExampleRecord, confirm: () => boolean | Promise<boolean>) {
+      if (!(await confirm())) return false;
+      if (input.trash === undefined) throw new SavedExampleError('STORAGE_UNAVAILABLE');
+      await input.trash.permanentlyDelete(record);
+      return true;
+    },
     list: () => input.repository.list(),
     get: (id: string) => input.repository.get(id),
   });

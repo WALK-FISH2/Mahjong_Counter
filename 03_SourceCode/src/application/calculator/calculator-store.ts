@@ -85,7 +85,8 @@ export type CalculatorInputRejection =
   | 'ANALYSIS_UNAVAILABLE'
   | 'ANALYSIS_FAILED'
   | 'TEMPORARY_ADJUSTMENT_INVALID'
-  | 'FAN_ADJUSTMENT_INVALID';
+  | 'FAN_ADJUSTMENT_INVALID'
+  | 'EDITOR_READ_ONLY';
 
 export type CalculatorInputResult =
   | Readonly<{ accepted: true }>
@@ -226,6 +227,11 @@ export type CalculatorState = Readonly<{
     recordRuleSwitchUndo?: boolean,
   ) => void;
   undoRuleSwitch: () => boolean;
+  restoreEditor: (
+    rule: RulePackageDefinition,
+    document: CalculatorDocument,
+    editingMeldId: string | null,
+  ) => void;
 }>;
 
 export type CalculatorStore = AppStore<CalculatorState>;
@@ -669,6 +675,7 @@ export function createCalculatorStore(
   initialDocument: CalculatorDocument = createInitialCalculatorDocument(rulePackage),
   evaluator?: CalculatorEvaluator,
   evaluationCapabilities?: CalculatorEvaluationCapabilities,
+  access?: Readonly<{ canEdit: () => boolean }>,
 ): CalculatorStore {
   if (
     initialDocument.ruleRef.ruleId !== rulePackage.manifest.ruleId ||
@@ -724,6 +731,30 @@ export function createCalculatorStore(
 
     return {
       document: initialDocument,
+      restoreEditor: (rule, document, editingMeldId) => {
+        if (access?.canEdit() === false) return;
+        if (
+          document.ruleRef.ruleId !== rule.manifest.ruleId ||
+          document.ruleRef.ruleVersion !== rule.manifest.ruleVersion
+        )
+          throw new Error('Restore RuleRef mismatch');
+        set({
+          rulePackage: rule,
+          document,
+          editingMeldId,
+          analysisStatus: 'idle',
+          analysisResult: null,
+          layeredEvaluation: null,
+          analysisRevision: null,
+          analysisDocument: null,
+          activeEvaluationLayer: 'preset',
+          selectedAnalysisCandidateId: null,
+          ruleSwitchUndo: null,
+          undoHand: null,
+          contextBeforeModeChange: null,
+          lastContextRemovals: [],
+        });
+      },
       rulePackage,
       ruleSwitchUndo: null,
       concealedSortMode: 'input-order',
@@ -741,6 +772,7 @@ export function createCalculatorStore(
       lastContextRemovals: Object.freeze([]),
       contextBeforeModeChange: null,
       addConcealedTile: (tile) => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         const tileSet = current.rulePackage.tileSet;
 
@@ -770,6 +802,7 @@ export function createCalculatorStore(
         return ACCEPTED_INPUT;
       },
       removeConcealedTile: (originalIndex) => {
+        if (access?.canEdit() === false) return false;
         const current = get();
 
         if (
@@ -788,6 +821,7 @@ export function createCalculatorStore(
       },
       arrangeConcealedTiles: () => set({ concealedSortMode: 'tile-order' }),
       setWinningTile: (tile) => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         if (getTileMetadata(tile).kind === 'flower') {
           return rejectedInput('TILE_NOT_CONCEALED');
@@ -814,6 +848,7 @@ export function createCalculatorStore(
         return ACCEPTED_INPUT;
       },
       removeWinningTile: () => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (current.document.hand.winningTile === null) {
           return false;
@@ -822,6 +857,7 @@ export function createCalculatorStore(
         return true;
       },
       confirmWinningTileFromConcealed: (originalIndex) => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         if (
           getWinningTileConfirmation(current.document, current.rulePackage) === null ||
@@ -846,6 +882,7 @@ export function createCalculatorStore(
         return ACCEPTED_INPUT;
       },
       beginTransientInput: (kind, openKind) => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         const ruleMeldType: RuleMeldType | null =
           kind === 'flower' ? null : kind === 'open-kong' ? 'open-kong' : kind;
@@ -882,6 +919,7 @@ export function createCalculatorStore(
         return ACCEPTED_INPUT;
       },
       beginMeldEdit: (meldId) => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         const meld = current.document.hand.melds.find(({ id }) => id === meldId);
         if (meld === undefined) {
@@ -904,6 +942,7 @@ export function createCalculatorStore(
         return ACCEPTED_INPUT;
       },
       beginAddedKongUpgrade: (meldId) => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         const meld = current.document.hand.melds.find(({ id }) => id === meldId);
         if (meld?.type !== 'pung') {
@@ -922,6 +961,7 @@ export function createCalculatorStore(
         return ACCEPTED_INPUT;
       },
       selectTransientTile: (tile) => {
+        if (access?.canEdit() === false) return rejectedTransientInput('EDITOR_READ_ONLY');
         const current = get();
         const session = current.document.transientInput;
         if (session.kind === 'none') {
@@ -1016,6 +1056,7 @@ export function createCalculatorStore(
         return commitMeld(current, createOpenKongMeld(meldId, tile, session.openKind));
       },
       removeTransientChowTile: (selectedIndex) => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (current.document.transientInput.kind !== 'chow') {
           return false;
@@ -1039,6 +1080,7 @@ export function createCalculatorStore(
         }
       },
       cancelTransientInput: () => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (current.document.transientInput.kind === 'none') {
           return false;
@@ -1052,6 +1094,7 @@ export function createCalculatorStore(
         return true;
       },
       removeMeld: (meldId) => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         const melds = current.document.hand.melds.filter(({ id }) => id !== meldId);
         if (melds.length === current.document.hand.melds.length) {
@@ -1061,6 +1104,7 @@ export function createCalculatorStore(
         return true;
       },
       removeFlower: (flowerIndex) => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (
           !Number.isSafeInteger(flowerIndex) ||
@@ -1074,6 +1118,7 @@ export function createCalculatorStore(
         return true;
       },
       undoLastHandChange: () => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (current.undoHand === null) {
           return false;
@@ -1094,6 +1139,7 @@ export function createCalculatorStore(
         return true;
       },
       setContextMode: (mode) => {
+        if (access?.canEdit() === false) return [];
         const current = get();
         if (current.document.context.mode === mode) return Object.freeze([]);
         const removals = collectContextRemovalsForMode(current.document, current.rulePackage, mode);
@@ -1112,6 +1158,7 @@ export function createCalculatorStore(
         return removals;
       },
       updateContextValue: (contextId, value) => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         const definition = getContextDefinition(current.rulePackage, contextId);
         if (
@@ -1147,6 +1194,7 @@ export function createCalculatorStore(
         return ACCEPTED_INPUT;
       },
       clearContextValue: (contextId) => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (current.document.context.values[contextId] === undefined) return false;
         const values = { ...current.document.context.values };
@@ -1166,6 +1214,7 @@ export function createCalculatorStore(
         return true;
       },
       undoContextRemovals: () => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (current.lastContextRemovals.length === 0 || current.contextBeforeModeChange === null) {
           return false;
@@ -1185,6 +1234,7 @@ export function createCalculatorStore(
         return true;
       },
       clearCorrectionIssue: (issueId) => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         const issues = getCorrectionIssues(current.document, current.rulePackage);
         const issue = issues.find((candidate) => candidate.issueId === issueId)?.issue;
@@ -1235,6 +1285,7 @@ export function createCalculatorStore(
         return true;
       },
       startAnalysis: async () => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         const status = getCalculatorStatus(current);
         if (evaluator === undefined) return rejectedInput('ANALYSIS_UNAVAILABLE');
@@ -1359,6 +1410,7 @@ export function createCalculatorStore(
         return true;
       },
       applyTemporaryRuleAdjustment: (values) => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         const adjustment = Object.freeze({
           baseRuleRef: current.document.ruleRef,
@@ -1382,6 +1434,7 @@ export function createCalculatorStore(
         return ACCEPTED_INPUT;
       },
       restoreSystemPreset: () => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (current.document.temporaryRuleAdjustment === null) return false;
         set({
@@ -1412,6 +1465,7 @@ export function createCalculatorStore(
         return true;
       },
       applyFanAdjustment: (patternId, action) => {
+        if (access?.canEdit() === false) return rejectedInput('EDITOR_READ_ONLY');
         const current = get();
         const layered = current.layeredEvaluation;
         if (
@@ -1469,6 +1523,7 @@ export function createCalculatorStore(
         return ACCEPTED_INPUT;
       },
       clearFanAdjustment: (patternId) => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (current.analysisDocument !== current.document) return false;
         if (!current.document.fanAdjustments.some((item) => item.patternId === patternId)) {
@@ -1520,6 +1575,7 @@ export function createCalculatorStore(
         return true;
       },
       replaceCalculator: (nextRulePackage, nextDocument, recordRuleSwitchUndo = false) => {
+        if (access?.canEdit() === false) return undefined;
         const current = get();
         if (
           nextDocument.ruleRef.ruleId !== nextRulePackage.manifest.ruleId ||
@@ -1550,6 +1606,7 @@ export function createCalculatorStore(
         });
       },
       undoRuleSwitch: () => {
+        if (access?.canEdit() === false) return false;
         const current = get();
         if (current.ruleSwitchUndo === null) return false;
         set({

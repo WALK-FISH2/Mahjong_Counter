@@ -1,4 +1,5 @@
 import type { SavedExampleRecord } from './persistence-models';
+import type { RuleSnapshotRecord, TrashExampleRecord } from '../persistence/persistence-models';
 
 export type SavedExampleEntry =
   | Readonly<{ status: 'available'; record: SavedExampleRecord }>
@@ -7,8 +8,23 @@ export type SavedExampleEntry =
 export interface SavedExampleRepository {
   list(): Promise<readonly SavedExampleEntry[]>;
   get(id: string): Promise<SavedExampleRecord | null>;
-  add(record: SavedExampleRecord): Promise<void>;
-  update(record: SavedExampleRecord, expected: SavedExampleRecord): Promise<void>;
+  add(record: SavedExampleRecord, snapshot?: RuleSnapshotRecord): Promise<void>;
+  update(
+    record: SavedExampleRecord,
+    expected: SavedExampleRecord,
+    snapshot?: RuleSnapshotRecord,
+  ): Promise<void>;
+}
+export interface TrashRepository {
+  listTrash(): Promise<
+    readonly (
+      | Readonly<{ status: 'available'; record: TrashExampleRecord }>
+      | Readonly<{ status: 'unreadable'; id: string }>
+    )[]
+  >;
+  moveToTrash(expected: SavedExampleRecord, trashedAt: string): Promise<void>;
+  restoreTrash(expected: TrashExampleRecord): Promise<void>;
+  permanentlyDelete(expected: TrashExampleRecord): Promise<void>;
 }
 export interface ClockPort {
   now(): string;

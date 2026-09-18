@@ -13,6 +13,7 @@ export function SavedExamplesPage({
 }: Readonly<{ service?: SavedExampleService | undefined }>) {
   const [entries, setEntries] = useState<readonly SavedExampleEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
   const [query, setQuery] = useState<SavedListQuery>({
     search: '',
     ruleId: '',
@@ -31,7 +32,7 @@ export function SavedExamplesPage({
     return () => {
       active = false;
     };
-  }, [service]);
+  }, [service, refresh]);
   const records = querySavedExamples(entries ?? [], query);
   const ruleNames = new Map(
     (entries ?? []).flatMap((entry) =>
@@ -43,6 +44,7 @@ export function SavedExamplesPage({
   return (
     <section className="page-shell saved-examples" aria-labelledby="saved-examples-title">
       <h1 id="saved-examples-title">已保存牌例</h1>
+      <Link to="/saved/trash">回收站</Link>
       {error !== null && <p role="alert">{error}</p>}
       {entries === null && error === null && <p>正在读取本地牌例…</p>}
       <div className="saved-filters">
@@ -95,6 +97,17 @@ export function SavedExamplesPage({
             <time dateTime={record.modifiedAt}>
               {new Date(record.modifiedAt).toLocaleString('zh-CN')}
             </time>
+            <button
+              className="secondary-action"
+              onClick={() => {
+                void service?.trash(record).then(
+                  () => setRefresh((value) => value + 1),
+                  (reason: unknown) => setError(savedErrorMessage(reason)),
+                );
+              }}
+            >
+              移入回收站
+            </button>
           </li>
         ))}
       </ul>

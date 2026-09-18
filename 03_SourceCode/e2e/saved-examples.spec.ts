@@ -73,6 +73,7 @@ test('Batch 20 IndexedDB save/reload/read-only/edit/update/save-as/discard on mo
     fullPage: true,
   });
   await expect(page.getByRole('button', { name: '保存牌例', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '继续上次牌面' }).click();
   await page.getByRole('button', { name: '编辑牌例' }).click();
   await page.getByRole('dialog').getByRole('button', { name: '取消' }).click();
   await expect(page.getByText(/只读查看/u)).toBeVisible();
@@ -149,23 +150,44 @@ test('Batch 20 concurrent explicit update rejects stale originals without overwr
   const other = await context.newPage();
   await other.goto('/#/saved');
   await other.getByRole('link', { name: '并发原始', exact: true }).click();
-  await other.getByRole('button', { name: '编辑牌例' }).click();
-  await other.getByRole('dialog').getByRole('button', { name: '确认编辑' }).click();
-  await analyze(other);
+  await expect(other.getByRole('button', { name: '在此窗口继续编辑' })).toBeVisible();
   await openEdit(page, '并发原始');
   await analyze(page);
-  for (const [target, name] of [
-    [page, '先保存'],
-    [other, '不得覆盖'],
-  ] as const) {
-    await expect(target.getByRole('button', { name: '更新原记录', exact: true })).toBeEnabled();
-    await target.getByRole('button', { name: '更新原记录', exact: true }).click();
-    const dialog = target.getByRole('dialog', { name: '更新原记录' });
-    await dialog.getByRole('textbox', { name: '名称' }).fill(name);
-    await dialog.getByRole('button', { name: '确认更新原记录' }).click();
-    if (target === page) await expect(dialog).not.toBeVisible();
-    else await expect(dialog.getByRole('alert')).toContainText('未覆盖任何记录');
-  }
+  // T912 now prevents a second UI writer. Inject a real concurrent DB transaction to
+  // retain T907's expected-record fencing regression (e.g. an older app tab).
+  await other.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open('MahjongFanCalculatorDB');
+        request.onerror = () => reject(request.error ?? new Error('IDB open failed'));
+        request.onsuccess = () => {
+          const db = request.result;
+          const tx = db.transaction('savedExamples', 'readwrite');
+          const table = tx.objectStore('savedExamples');
+          const all = table.getAll();
+          all.onsuccess = () => {
+            const value: unknown = all.result[0];
+            if (typeof value === 'object' && value !== null)
+              table.put({ ...value, name: '先保存' });
+            else tx.abort();
+          };
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onabort = () => {
+            db.close();
+            reject(tx.error ?? new Error('IDB transaction aborted'));
+          };
+        };
+      }),
+  );
+  await page.getByRole('button', { name: '更新原记录', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '更新原记录' });
+  await dialog.getByRole('textbox', { name: '名称' }).fill('不得覆盖');
+  await dialog.getByRole('button', { name: '确认更新原记录' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('未覆盖任何记录');
+  await dialog.getByRole('button', { name: '取消' }).click();
   await page.goto('/#/saved');
   await expect(page.locator('.saved-list > li')).toHaveCount(1);
   await expect(page.getByRole('link', { name: '先保存', exact: true })).toBeVisible();
@@ -179,11 +201,8 @@ test('Batch 20 IndexedDB unavailable never reports saved and does not break Calc
     Object.defineProperty(window, 'indexedDB', { get: () => undefined });
   });
   await loadLegalExample(page);
-  await page.getByRole('button', { name: '保存牌例', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: '保存牌例', exact: true });
-  await dialog.getByRole('button', { name: '确认保存', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toContainText('本地存储不可用');
-  await dialog.getByRole('button', { name: '取消' }).click();
+  await expect(page.getByText('临时使用模式', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '保存牌例', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '合法和牌', exact: true })).toBeVisible();
   await page
     .getByRole('navigation', { name: '主导航' })

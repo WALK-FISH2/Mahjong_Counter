@@ -1507,7 +1507,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T908 实现回收站
 
-- 状态：TODO
+- 状态：DONE
 - 目标：删除→Trash→恢复/永久删除，永久删除需确认且回收站不自动过期。
 - 依赖：T905
 - 测试：modifiedAt 不因 trash 改变、永久删除确认、长期保留
@@ -1515,7 +1515,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T909 实现唯一 Draft
 
-- 状态：TODO
+- 状态：DONE
 - 目标：500ms debounce 自动保存。
 - 依赖：T901、T106
 - 测试：刷新恢复
@@ -1523,7 +1523,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T910 实现启动 Draft 恢复
 
-- 状态：TODO
+- 状态：DONE
 - 目标：继续上次/新建。
 - 依赖：T909
 - 测试：启动分支
@@ -1531,7 +1531,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T911 实现 Undo/Redo
 
-- 状态：TODO
+- 状态：DONE
 - 目标：会话级 Command History。
 - 依赖：T106
 - 测试：常用操作
@@ -1539,7 +1539,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T912 实现多标签编辑锁
 
-- 状态：TODO
+- 状态：DONE
 - 目标：单主要编辑器、可 takeover。
 - 依赖：T909
 - 验收：同一时刻只有一个主要编辑器可写；takeover 后原标签转只读；异常关闭后锁可恢复，且无 Draft 静默覆盖。
@@ -1549,7 +1549,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T913 实现 Storage Capability 与 Temporary Mode
 
-- 状态：TODO
+- 状态：DONE
 - 目标：存储不可用仍可计算。
 - 依赖：T901
 - 验收：IDB 不可用或 Quota 失败时明确进入 Temporary Mode；计算仍可完成，不显示虚假保存成功，受影响的保存/恢复/导入操作明确暂停。
@@ -1559,7 +1559,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T914 实现 Rule Snapshot 引用
 
-- 状态：TODO
+- 状态：DONE
 - 目标：旧牌例依赖规则版本可保留最小快照。
 - 依赖：T902
 - 测试：删除规则包后牌例仍可打开

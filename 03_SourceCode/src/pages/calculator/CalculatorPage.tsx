@@ -96,6 +96,8 @@ function CalculatorLoading({ failed }: Readonly<{ failed: boolean }>) {
 
 function rejectionMessage(reasonCode: CalculatorInputRejection): string {
   switch (reasonCode) {
+    case 'EDITOR_READ_ONLY':
+      return '当前窗口只读，请先接管编辑。';
     case 'TILE_NOT_ENABLED':
       return '当前规则不使用这张牌。';
     case 'TILE_NOT_CONCEALED':
@@ -140,6 +142,7 @@ function rejectionMessage(reasonCode: CalculatorInputRejection): string {
 type LoadedCalculatorPageProps = Readonly<{
   store: CalculatorStore;
   runtime?: CalculatorRuntime | undefined;
+  persistent?: boolean;
 }>;
 
 function QuickCalcEntry({ onOpen }: Readonly<{ onOpen: () => void }>) {
@@ -157,7 +160,7 @@ function QuickCalcEntry({ onOpen }: Readonly<{ onOpen: () => void }>) {
   );
 }
 
-function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
+function LoadedCalculatorPage({ store, runtime, persistent = true }: LoadedCalculatorPageProps) {
   const outletContext = useOutletContext<{ restoreCalculatorScroll?: number } | null>();
   const analysisSectionRef = useRef<HTMLElement>(null);
   const readyAnalysisRequestRef = useRef(0);
@@ -861,7 +864,11 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                 userAdjustedResult={layeredEvaluation?.userAdjustment?.result ?? null}
                 actionPolicy={{
                   ...getResultActionPolicy(analysisResult.status),
-                  save: !showQuickCalc && !legalWinDiscardView && canSaveExample(store.getState()),
+                  save:
+                    persistent &&
+                    !showQuickCalc &&
+                    !legalWinDiscardView &&
+                    canSaveExample(store.getState()),
                 }}
                 onSave={() => setSaveMode('new')}
                 onSelectLayer={setActiveEvaluationLayer}
@@ -888,7 +895,7 @@ function LoadedCalculatorPage({ store, runtime }: LoadedCalculatorPageProps) {
                 mode={saveMode}
                 onOpen={setSaveMode}
                 onClose={() => setSaveMode(null)}
-                formalVisible={!showQuickCalc && !legalWinDiscardView}
+                formalVisible={persistent && !showQuickCalc && !legalWinDiscardView}
               />
             )}
           </section>
@@ -1079,5 +1086,28 @@ export function CalculatorPage({ store, runtime, loadFailed = false }: Calculato
     return <CalculatorLoading failed={loadFailed} />;
   }
 
-  return <LoadedCalculatorPage store={store} runtime={runtime} />;
+  return runtime?.persistence === undefined ? (
+    <LoadedCalculatorPage store={store} runtime={runtime} />
+  ) : (
+    <ProtectedCalculator store={store} runtime={runtime} persistence={runtime.persistence} />
+  );
+}
+
+function ProtectedCalculator({
+  store,
+  runtime,
+  persistence,
+}: LoadedCalculatorPageProps &
+  Readonly<{ persistence: NonNullable<CalculatorRuntime['persistence']> }>) {
+  useStore(persistence.drafts.state);
+  const mode = useStore(persistence.storage.state, (value) => value.mode);
+  return (
+    <fieldset
+      className="calculator-editor-surface"
+      disabled={!persistence.drafts.canEdit()}
+      aria-label="计算器编辑区"
+    >
+      <LoadedCalculatorPage store={store} runtime={runtime} persistent={mode === 'persistent'} />
+    </fieldset>
+  );
 }
