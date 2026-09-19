@@ -77,6 +77,9 @@ test('supports Batch 19 filters, Rule Case examples, deep links, and guarded Cal
   await expect(page.getByRole('article', { name: /大四喜/u })).toContainText(
     '东南西北四副风刻或杠。',
   );
+  // T910 now requires an explicit startup choice after refresh, before any replacement.
+  await expect(page.getByRole('button', { name: '继续上次牌面' })).toBeVisible({ timeout: 15000 });
+  await page.getByRole('button', { name: '继续上次牌面' }).click();
   await page.goBack();
   await expect(page).toHaveURL(/#\/rules$/u);
 
@@ -92,7 +95,9 @@ test('supports Batch 19 filters, Rule Case examples, deep links, and guarded Cal
   await expect(guard).toContainText('不会自动保存');
   await guard.getByRole('button', { name: '确认带入' }).click();
   await expect(page).toHaveURL(/#\/calculator$/u);
-  await expect(page.getByRole('status')).toContainText('百科带入的临时示例');
+  await expect(page.getByRole('group', { name: '计算器编辑区' }).getByRole('status')).toContainText(
+    '百科带入的临时示例',
+  );
   await expect(page.getByRole('button', { name: '恢复原示例' })).toBeVisible();
 
   expect(consoleIssues).toEqual([]);
@@ -183,7 +188,9 @@ test('supports the Batch 12 temporary meld and winning-tile flow', async ({ page
   await guard.getByRole('button', { name: '留在当前录入流程' }).click();
 
   await selectTile('p3');
-  await expect(page.getByRole('status')).toContainText('前两张已保留');
+  await expect(page.getByRole('group', { name: '计算器编辑区' }).getByRole('status')).toContainText(
+    '前两张已保留',
+  );
   await selectTile('m3');
   await expect(page.getByLabel('吃牌组')).toBeVisible();
   await expect(page.getByRole('heading', { name: '录入吃牌' })).toHaveCount(0);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import { commonSimpleRulePackage } from '../../src/content/rules/common-simple/parsed-rule-package';
 import {
@@ -9,6 +10,20 @@ import {
 } from './core-encyclopedia-artifacts';
 
 describe('T810 core encyclopedia build artifacts', () => {
+  it('matches the actually emitted dist files to the unchanged RulePackage-derived data', () => {
+    const bundle: unknown = JSON.parse(
+      readFileSync(`dist/${getCoreEncyclopediaFileName(commonSimpleRulePackage)}`, 'utf8'),
+    );
+    const manifest: unknown = JSON.parse(
+      readFileSync(`dist/${CORE_ENCYCLOPEDIA_RESOURCE_MANIFEST_FILE}`, 'utf8'),
+    );
+    expect(bundle).toEqual(createCoreEncyclopediaBundle(commonSimpleRulePackage));
+    expect(manifest).toEqual(createCoreEncyclopediaResourceManifest(commonSimpleRulePackage));
+    expect(
+      createCoreEncyclopediaResourceManifest(commonSimpleRulePackage).generatedFrom.bundleRevision,
+    ).toBe('a105d525f540c182c09abbc57e590d3bbfa3d5902c1aaaa2796443425e1b360b');
+  });
+
   it('contains the versioned catalog, examples, sources, and stable resource URL', () => {
     const bundle = createCoreEncyclopediaBundle(commonSimpleRulePackage);
     const manifest = createCoreEncyclopediaResourceManifest(commonSimpleRulePackage);

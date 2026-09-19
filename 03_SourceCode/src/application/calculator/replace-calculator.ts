@@ -46,6 +46,7 @@ export type CalculatorReplacement = Readonly<{
 export type ReplaceCalculatorResult =
   | Readonly<{ status: 'replaced' }>
   | Readonly<{ status: 'cancelled' }>
+  | Readonly<{ status: 'editor-read-only' }>
   | Readonly<{ status: 'draft-protection-failed'; error: unknown }>;
 
 export type ReplaceCalculatorConfirmation = (
@@ -79,6 +80,7 @@ export class InMemoryCalculatorDraftPort implements CalculatorDraftPort, DraftPr
 export function createCalculatorReplaceGuard(
   store: CalculatorStore,
   draftPort: CalculatorDraftPort,
+  canReplace: () => boolean = () => true,
 ) {
   return Object.freeze({
     async prepareToReplaceCalculator(
@@ -87,6 +89,7 @@ export function createCalculatorReplaceGuard(
       createReplacement: () => Promise<CalculatorReplacement> | CalculatorReplacement,
     ): Promise<ReplaceCalculatorResult> {
       const currentDocument = store.getState().document;
+      if (!canReplace()) return Object.freeze({ status: 'editor-read-only' });
 
       try {
         await draftPort.protectBeforeReplacement(currentDocument, reason);
@@ -99,6 +102,12 @@ export function createCalculatorReplaceGuard(
       }
 
       const replacement = await createReplacement();
+      if (!canReplace()) return Object.freeze({ status: 'editor-read-only' });
+      if (store.getState().document !== currentDocument)
+        return Object.freeze({
+          status: 'draft-protection-failed',
+          error: new Error('CALCULATOR_CHANGED'),
+        });
       store
         .getState()
         .replaceCalculator(

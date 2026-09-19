@@ -1447,7 +1447,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T901 初始化 Dexie 数据库
 
-- 状态：TODO
+- 状态：DONE
 - 目标：建立 saved/trash/draft/snapshot/meta 表。
 - 依赖：M8
 - 测试：DB open/close
@@ -1455,7 +1455,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T902 实现 SavedExampleRecord
 
-- 状态：TODO
+- 状态：DONE
 - 目标：保存完整 Calculator + Result Snapshot。
 - 依赖：T901、T612
 - 测试：roundtrip
@@ -1463,7 +1463,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T903 实现默认名称生成器
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则名 + 1～2 个主要番型。
 - 依赖：T902
 - 测试：排除普通附加项
@@ -1471,7 +1471,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T904 实现保存牌例 Use Case
 
-- 状态：TODO
+- 状态：DONE
 - 目标：只有正式合法当前 revision 结果可由用户主动通过仅含名称的表单保存。
 - 依赖：T902～T903
 - 验收：
@@ -1483,7 +1483,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T905 实现 Saved 列表
 
-- 状态：TODO
+- 状态：DONE
 - 目标：倒序、搜索、规则筛选、排序。
 - 依赖：T904
 - 测试：列表行为
@@ -1491,7 +1491,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T906 实现只读打开与编辑副本
 
-- 状态：TODO
+- 状态：DONE
 - 目标：默认只读，编辑进入临时副本。
 - 依赖：T905
 - 测试：原记录不自动修改
@@ -1499,7 +1499,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T907 实现更新原记录/另存/放弃
 
-- 状态：TODO
+- 状态：DONE
 - 目标：显式决定编辑结果。
 - 依赖：T906
 - 测试：三种路径
@@ -1507,7 +1507,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T908 实现回收站
 
-- 状态：TODO
+- 状态：DONE
 - 目标：删除→Trash→恢复/永久删除，永久删除需确认且回收站不自动过期。
 - 依赖：T905
 - 测试：modifiedAt 不因 trash 改变、永久删除确认、长期保留
@@ -1515,7 +1515,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T909 实现唯一 Draft
 
-- 状态：TODO
+- 状态：DONE
 - 目标：500ms debounce 自动保存。
 - 依赖：T901、T106
 - 测试：刷新恢复
@@ -1523,7 +1523,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T910 实现启动 Draft 恢复
 
-- 状态：TODO
+- 状态：DONE
 - 目标：继续上次/新建。
 - 依赖：T909
 - 测试：启动分支
@@ -1531,7 +1531,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T911 实现 Undo/Redo
 
-- 状态：TODO
+- 状态：DONE
 - 目标：会话级 Command History。
 - 依赖：T106
 - 测试：常用操作
@@ -1539,7 +1539,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T912 实现多标签编辑锁
 
-- 状态：TODO
+- 状态：DONE
 - 目标：单主要编辑器、可 takeover。
 - 依赖：T909
 - 验收：同一时刻只有一个主要编辑器可写；takeover 后原标签转只读；异常关闭后锁可恢复，且无 Draft 静默覆盖。
@@ -1549,7 +1549,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T913 实现 Storage Capability 与 Temporary Mode
 
-- 状态：TODO
+- 状态：DONE
 - 目标：存储不可用仍可计算。
 - 依赖：T901
 - 验收：IDB 不可用或 Quota 失败时明确进入 Temporary Mode；计算仍可完成，不显示虚假保存成功，受影响的保存/恢复/导入操作明确暂停。
@@ -1559,7 +1559,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T914 实现 Rule Snapshot 引用
 
-- 状态：TODO
+- 状态：DONE
 - 目标：旧牌例依赖规则版本可保留最小快照。
 - 依赖：T902
 - 测试：删除规则包后牌例仍可打开
@@ -1567,7 +1567,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T915 建立 Settings Preferences Store / Repository
 
-- 状态：TODO
+- 状态：DONE
 - 目标：为所有轻量设置提供统一、类型化的 localStorage 事实来源。
 - 依赖：T011
 - 涉及：`src/application/state/`、`src/infrastructure/preferences/`
@@ -1581,7 +1581,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T916 集成 Replace Guard、Draft 与 Engine Recovery
 
-- 状态：TODO
+- 状态：DONE
 - 目标：将 T520/T714 的 Draft/Undo Port 接入唯一 Draft 和会话 Command History。
 - 依赖：T520、T714、T909～T911
 - 验收：New Hand、Rule Switch、Share、Import、百科示例、Saved Example 和 Engine Error 在未保护 Draft 前均不替换当前状态。
@@ -1590,7 +1590,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T917 实现 Saved 状态机、modifiedAt 与容量显示
 
-- 状态：TODO
+- 状态：DONE
 - 目标：落实 SAVED / MODIFIED_AFTER_SAVE、精确修改时间和无数量上限行为。
 - 依赖：T904～T908、T913
 - 验收：
@@ -1603,7 +1603,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T918 实现 Database Migration Service / Use Case
 
-- 状态：TODO
+- 状态：DONE
 - 目标：提供真实数据库迁移能力，而不是只建立测试 Harness。
 - 依赖：T008、T901
 - 验收：
@@ -1617,7 +1617,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T919 实现清除全部本地数据 Use Case
 
-- 状态：TODO
+- 状态：DONE
 - 目标：安全清除用户本地数据而不删除应用和内置核心规则。
 - 依赖：T901
 - 验收：列出删除范围、二次确认、通过 BackupExportPort 提供先导出完整备份；清除 Saved/Trash/Draft/Settings/Rule Snapshots 后重新初始化安全默认值。
@@ -1627,11 +1627,13 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ### M9 Gate
 
-- [ ] T901～T919 完成
-- [ ] 保存/恢复/编辑/Trash/Draft 全部通过
-- [ ] 多标签保护可用
-- [ ] Storage failure 不虚假保存成功
-- [ ] Preferences、Replace Guard 持久化、Saved 状态机、Migration 与清除全部数据通过
+- [x] T901～T919 完成
+- [x] 保存/恢复/编辑/Trash/Draft 全部通过
+- [x] 多标签保护可用
+- [x] Storage failure 不虚假保存成功
+- [x] Preferences、Replace Guard 持久化、Saved 状态机、Migration 与清除全部数据通过
+
+Gate 证据：`docs/verification/m9/gate.md`
 
 ---
 
