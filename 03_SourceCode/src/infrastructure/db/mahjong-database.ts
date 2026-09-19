@@ -17,9 +17,13 @@ export class MahjongDatabase extends Dexie {
   readonly draft: Table<unknown, string>;
   readonly ruleSnapshots: Table<unknown, string>;
 
-  constructor(name = 'MahjongFanCalculatorDB', options?: ConstructorParameters<typeof Dexie>[1]) {
+  constructor(
+    name = 'MahjongFanCalculatorDB',
+    options?: ConstructorParameters<typeof Dexie>[1],
+    version: number = DATABASE_SCHEMA_VERSION,
+  ) {
     super(name, options);
-    this.version(DATABASE_SCHEMA_VERSION).stores(DATABASE_STORES);
+    this.version(version).stores(DATABASE_STORES);
     this.savedExamples = this.table('savedExamples');
     this.trashExamples = this.table('trashExamples');
     this.draft = this.table('draft');

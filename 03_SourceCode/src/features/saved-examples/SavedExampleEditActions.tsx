@@ -37,7 +37,7 @@ export function SavedExampleEditActions({
       {original !== null && (
         <section className="saved-session" aria-label="牌例保存状态">
           <p role="status">
-            {session.savedDocument === state.document ? '已保存' : '有未保存修改'}：{original.name}
+            {session.status === 'SAVED' ? '已保存' : '有未保存修改'}：{original.name}
           </p>
           <div className="saved-actions">
             <button

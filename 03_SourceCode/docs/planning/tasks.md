@@ -1567,7 +1567,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T915 建立 Settings Preferences Store / Repository
 
-- 状态：TODO
+- 状态：DONE
 - 目标：为所有轻量设置提供统一、类型化的 localStorage 事实来源。
 - 依赖：T011
 - 涉及：`src/application/state/`、`src/infrastructure/preferences/`
@@ -1581,7 +1581,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T916 集成 Replace Guard、Draft 与 Engine Recovery
 
-- 状态：TODO
+- 状态：DONE
 - 目标：将 T520/T714 的 Draft/Undo Port 接入唯一 Draft 和会话 Command History。
 - 依赖：T520、T714、T909～T911
 - 验收：New Hand、Rule Switch、Share、Import、百科示例、Saved Example 和 Engine Error 在未保护 Draft 前均不替换当前状态。
@@ -1590,7 +1590,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T917 实现 Saved 状态机、modifiedAt 与容量显示
 
-- 状态：TODO
+- 状态：DONE
 - 目标：落实 SAVED / MODIFIED_AFTER_SAVE、精确修改时间和无数量上限行为。
 - 依赖：T904～T908、T913
 - 验收：
@@ -1603,7 +1603,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T918 实现 Database Migration Service / Use Case
 
-- 状态：TODO
+- 状态：DONE
 - 目标：提供真实数据库迁移能力，而不是只建立测试 Harness。
 - 依赖：T008、T901
 - 验收：
@@ -1617,7 +1617,7 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ## T919 实现清除全部本地数据 Use Case
 
-- 状态：TODO
+- 状态：DONE
 - 目标：安全清除用户本地数据而不删除应用和内置核心规则。
 - 依赖：T901
 - 验收：列出删除范围、二次确认、通过 BackupExportPort 提供先导出完整备份；清除 Saved/Trash/Draft/Settings/Rule Snapshots 后重新初始化安全默认值。
@@ -1627,11 +1627,13 @@ Gate 证据：`docs/verification/m8/gate.md`
 
 ### M9 Gate
 
-- [ ] T901～T919 完成
-- [ ] 保存/恢复/编辑/Trash/Draft 全部通过
-- [ ] 多标签保护可用
-- [ ] Storage failure 不虚假保存成功
-- [ ] Preferences、Replace Guard 持久化、Saved 状态机、Migration 与清除全部数据通过
+- [x] T901～T919 完成
+- [x] 保存/恢复/编辑/Trash/Draft 全部通过
+- [x] 多标签保护可用
+- [x] Storage failure 不虚假保存成功
+- [x] Preferences、Replace Guard 持久化、Saved 状态机、Migration 与清除全部数据通过
+
+Gate 证据：`docs/verification/m9/gate.md`
 
 ---
 

@@ -7,6 +7,7 @@ export function PersistencePanel({
   const { drafts, storage, history } = persistence;
   const session = useStore(drafts.state);
   const mode = useStore(storage.state, (value) => value.mode);
+  const reason = useStore(storage.state, (value) => value.reason);
   const commands = useStore(history.state);
   return (
     <aside className="persistence-panel" aria-label="本地数据与编辑状态">
@@ -15,7 +16,13 @@ export function PersistencePanel({
           <strong>临时使用模式</strong>
           <p>
             本地存储不可用或空间不足。仍可录牌和计算；保存牌例、草稿恢复和持久化写入已暂停。不要关闭尚未保留的输入。
+            空间紧张时建议先备份或明确删除不需要的数据，不会自动清理牌例。
           </p>
+          {reason?.startsWith('MIGRATION') === true || reason === 'DATABASE_NEWER_READ_ONLY' ? (
+            <p>
+              数据库迁移未能可靠完成，原数据与已有备份只读保留。请使用兼容版本处理，不会自动重试写入。
+            </p>
+          ) : null}
           <button
             className="secondary-action"
             onClick={() => {

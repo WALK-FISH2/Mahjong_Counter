@@ -22,6 +22,47 @@
   text-rendering: optimizeLegibility;
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-background: #152019;
+  --color-surface: #1d2c23;
+  --color-surface-soft: #23382b;
+  --color-border: #587361;
+  --color-text: #eef6f0;
+  --color-text-muted: #c2d5c8;
+  --color-accent: #7bdab3;
+  --color-accent-soft: #274d3b;
+  --color-focus: #9feac5;
+}
+
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+.settings-preferences {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.settings-preferences label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.settings-preferences select {
+  min-height: 2.75rem;
+  max-width: 100%;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
 * {
   box-sizing: border-box;
 }

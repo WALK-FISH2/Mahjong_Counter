@@ -200,7 +200,32 @@ test('Batch 20 IndexedDB unavailable never reports saved and does not break Calc
   await page.addInitScript(() => {
     Object.defineProperty(window, 'indexedDB', { get: () => undefined });
   });
-  await loadLegalExample(page);
+  // T916 now correctly blocks replacement without persistent Draft protection.
+  // Verify degraded Calculator operation through real manual input, not a bypassing example load.
+  await page.goto('/#/calculator');
+  for (const code of [
+    'm1',
+    'm2',
+    'm3',
+    'p1',
+    'p2',
+    'p3',
+    's1',
+    's2',
+    's3',
+    'east',
+    'east',
+    'east',
+    'white',
+  ]) {
+    await page.locator(`.tile-palette button[data-tile-code="${code}"]`).click();
+  }
+  await page.getByRole('button', { name: '选择胡牌张' }).click();
+  await page.locator('.tile-palette button[data-tile-code="white"]').click();
+  const conditions = page.getByRole('heading', { name: '和牌条件' }).locator('..');
+  await conditions.getByLabel('门风').selectOption({ label: '东风' });
+  await conditions.getByLabel('圈风').selectOption({ label: '南风' });
+  await analyze(page);
   await expect(page.getByText('临时使用模式', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '保存牌例', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '合法和牌', exact: true })).toBeVisible();

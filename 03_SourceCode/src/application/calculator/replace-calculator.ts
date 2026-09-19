@@ -103,6 +103,11 @@ export function createCalculatorReplaceGuard(
 
       const replacement = await createReplacement();
       if (!canReplace()) return Object.freeze({ status: 'editor-read-only' });
+      if (store.getState().document !== currentDocument)
+        return Object.freeze({
+          status: 'draft-protection-failed',
+          error: new Error('CALCULATOR_CHANGED'),
+        });
       store
         .getState()
         .replaceCalculator(

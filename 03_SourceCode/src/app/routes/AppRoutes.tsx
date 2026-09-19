@@ -73,6 +73,8 @@ export function AppRoutes({
                     : () => replayOnboarding(calculatorRuntime.preferencesPort)
                 }
                 preferencesPort={calculatorRuntime?.preferencesPort}
+                localPreferences={calculatorRuntime?.localPreferences}
+                localData={calculatorRuntime?.localData}
               />
             }
           />

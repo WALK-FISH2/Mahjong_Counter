@@ -466,6 +466,7 @@ describe('Batch 20 T905–T907 explicit editing and safe updates', () => {
     vi.spyOn(repository, 'add').mockRejectedValueOnce(new SavedExampleError('STORAGE_UNAVAILABLE'));
     await expect(service.save('失败')).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
     expect(service.session.getState()).toEqual({
+      status: 'UNSAVED',
       editingOriginal: null,
       savedDocument: null,
       busy: false,

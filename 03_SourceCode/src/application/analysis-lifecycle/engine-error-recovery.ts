@@ -98,6 +98,7 @@ export function createEngineErrorRecoveryService(
   }>,
 ): EngineErrorRecoveryService {
   let state = IDLE_STATE;
+  let protectedDocument: CalculatorDocument | null = null;
   const listeners = new Set<() => void>();
   const publish = (next: EngineErrorRecoveryState): void => {
     state = Object.freeze(next);
@@ -114,8 +115,10 @@ export function createEngineErrorRecoveryService(
     try {
       await input.draftProtectionPort.protectCurrentDraft(document);
       draftProtected = true;
+      protectedDocument = document;
     } catch {
       draftProtected = false;
+      protectedDocument = null;
     }
     publish({
       status: 'error',
@@ -139,6 +142,11 @@ export function createEngineErrorRecoveryService(
     runAnalysis,
     retry: runAnalysis,
     undo: () => {
+      if (
+        state.status === 'error' &&
+        (!state.draftProtected || protectedDocument !== input.store.getState().document)
+      )
+        return false;
       if (!input.undoPort.undo()) return false;
       publish(IDLE_STATE);
       return true;

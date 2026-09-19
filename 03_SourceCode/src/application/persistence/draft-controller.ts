@@ -3,7 +3,7 @@ import {
   createInitialCalculatorDocument,
   type CalculatorStore,
 } from '../calculator/calculator-store';
-import { createCalculatorDocument } from '../../domain/mahjong';
+import { createCalculatorDocument, type CalculatorDocument } from '../../domain/mahjong';
 import type { DraftContent, DraftRecord } from './persistence-models';
 import { DraftOwnershipError, type DraftRepository } from './draft-repository';
 import type { RuleRepository } from '../rules/rule-repository';
@@ -57,6 +57,7 @@ export function createDraftController(
   let current: DraftRecord | null = null;
   let restoring = false;
   let disposed = false;
+  let suspended = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let queue: Promise<void> = Promise.resolve();
   let checking = false;
@@ -78,7 +79,8 @@ export function createDraftController(
   });
   const canEdit = () =>
     restoring ||
-    (state.getState().role === 'primary' &&
+    (!suspended &&
+      state.getState().role === 'primary' &&
       state.getState().pending === null &&
       (input.lock?.isHeld() ?? true) &&
       (input.storage.state.getState().mode === 'temporary' || input.now() < validUntil));
@@ -186,7 +188,7 @@ export function createDraftController(
     if (next.document === previous.document && next.editingMeldId === previous.editingMeldId)
       return;
     if (next.documentEpoch !== previous.documentEpoch && !restoring) {
-      // T909 best-effort capture. Complete pre-replacement/Engine Recovery Port integration is T916.
+      // Retain best-effort capture for internal replacements; public entries protect before commit.
       void flush(lastContent);
     }
     lastContent = capture();
@@ -200,7 +202,7 @@ export function createDraftController(
     }
   });
   async function check(): Promise<void> {
-    if (disposed || checking || transferring) return;
+    if (disposed || suspended || checking || transferring) return;
     checking = true;
     try {
       if (state.getState().role !== 'primary' && input.now() < claimAfter) return;
@@ -209,8 +211,15 @@ export function createDraftController(
         return;
       }
       if (state.getState().role === 'primary') {
-        if (!(await input.repository.renew(input.owner, leaseToken, input.now(), EDITOR_LEASE_MS)))
-          loseOwnership();
+        const tokenAtCheck = leaseToken;
+        const renewed = await input.repository.renew(
+          input.owner,
+          tokenAtCheck,
+          input.now(),
+          EDITOR_LEASE_MS,
+        );
+        if (tokenAtCheck !== leaseToken) return;
+        if (!renewed) loseOwnership();
         else validUntil = input.now() + EDITOR_LEASE_MS;
       } else {
         const latest = await input.repository.read();
@@ -287,6 +296,67 @@ export function createDraftController(
     state,
     canEdit,
     flush,
+    async protectCurrentDraft(this: void, document: CalculatorDocument) {
+      input.storage.requirePersistence();
+      if (!canEdit() || document !== input.calculator.getState().document)
+        throw new DraftOwnershipError();
+      const content = capture();
+      await flush(content);
+      input.storage.requirePersistence();
+      // A skipped, failed, superseded or late write is not successful protection.
+      if (
+        !canEdit() ||
+        document !== input.calculator.getState().document ||
+        current === null ||
+        JSON.stringify(current.calculator) !== JSON.stringify(content.calculator) ||
+        JSON.stringify(current.editingOrigin) !== JSON.stringify(content.editingOrigin) ||
+        current.editingMeldId !== content.editingMeldId
+      )
+        throw new DraftOwnershipError();
+      if (!(await input.repository.renew(input.owner, leaseToken, input.now(), EDITOR_LEASE_MS))) {
+        loseOwnership();
+        throw new DraftOwnershipError();
+      }
+    },
+    async suspend(this: void) {
+      suspended = true;
+      clearTimeout(timer);
+      await queue;
+    },
+    resume(this: void) {
+      suspended = false;
+    },
+    clearFence() {
+      if (current === null) throw new DraftOwnershipError();
+      const blank = makeRecord({
+        calculator: persistCalculator(
+          createInitialCalculatorDocument(input.calculator.getState().rulePackage),
+        ),
+        editingMeldId: null,
+        editingOrigin: null,
+      });
+      return { owner: input.owner, token: leaseToken, blank: { ...blank, lease: current.lease } };
+    },
+    async resetAfterClear(this: void) {
+      current = null;
+      restoring = true;
+      try {
+        input.history.withoutHistory(() => {
+          const value = input.calculator.getState();
+          value.restoreEditor(
+            value.rulePackage,
+            createInitialCalculatorDocument(value.rulePackage),
+            null,
+          );
+          input.examples.restoreEditingOrigin(null);
+        });
+      } finally {
+        restoring = false;
+        suspended = false;
+      }
+      await acquire();
+      state.setState({ pending: null });
+    },
     check,
     async start() {
       try {

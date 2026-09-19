@@ -31,6 +31,7 @@ import {
 import { parseSavedExample } from '../../schemas/persistence/saved-example-schema';
 
 export type SavedSession = Readonly<{
+  status: 'UNSAVED' | 'SAVED' | 'MODIFIED_AFTER_SAVE';
   editingOriginal: SavedExampleRecord | null;
   savedDocument: CalculatorDocument | null;
   busy: boolean;
@@ -82,13 +83,19 @@ export function createSavedExampleService(
   }>,
 ) {
   const session = createAppStore<SavedSession>(() => ({
+    status: 'UNSAVED',
     editingOriginal: null,
     savedDocument: null,
     busy: false,
   }));
   input.calculator.subscribe((current, previous) => {
     if (current.documentEpoch !== previous.documentEpoch) {
-      session.setState({ editingOriginal: null, savedDocument: null });
+      session.setState({ editingOriginal: null, savedDocument: null, status: 'UNSAVED' });
+    } else if (
+      current.document !== previous.document &&
+      session.getState().editingOriginal !== null
+    ) {
+      session.setState({ status: 'MODIFIED_AFTER_SAVE' });
     }
   });
 
@@ -121,7 +128,14 @@ export function createSavedExampleService(
       else await input.repository.update(record, original, snapshot);
       // Do not associate an in-flight save with a replacement document.
       if (input.calculator.getState().documentEpoch === state.documentEpoch) {
-        session.setState({ editingOriginal: record, savedDocument: state.document });
+        session.setState({
+          editingOriginal: record,
+          savedDocument: state.document,
+          status:
+            input.calculator.getState().document === state.document
+              ? 'SAVED'
+              : 'MODIFIED_AFTER_SAVE',
+        });
       }
       return record;
     } finally {
@@ -173,6 +187,7 @@ export function createSavedExampleService(
     );
     if (result.status === 'replaced')
       session.setState({
+        status: 'SAVED',
         editingOriginal: record,
         savedDocument: input.calculator.getState().document,
       });
@@ -183,12 +198,22 @@ export function createSavedExampleService(
     if (original === null) return null;
     const result = await edit(original, confirm);
     if (result.status !== 'replaced') return null;
-    session.setState({ editingOriginal: null, savedDocument: null });
+    session.setState({ editingOriginal: null, savedDocument: null, status: 'UNSAVED' });
     return original.id;
   }
   return Object.freeze({
     session,
     save,
+    async rename(expected: SavedExampleRecord, name: string) {
+      input.storage?.requirePersistence();
+      if (name.trim().length === 0 || name.length > 256)
+        throw new SavedExampleError('INVALID_NAME');
+      const record = parseSavedExample({ ...expected, name, modifiedAt: input.clock.now() });
+      await input.repository.update(record, expected);
+      if (session.getState().editingOriginal === expected)
+        session.setState({ editingOriginal: record });
+      return record;
+    },
     edit,
     discard,
     resolveHistoricalRule,
@@ -201,7 +226,11 @@ export function createSavedExampleService(
       }
     },
     restoreEditingOrigin(original: SavedExampleRecord | null) {
-      session.setState({ editingOriginal: original, savedDocument: null });
+      session.setState({
+        editingOriginal: original,
+        savedDocument: null,
+        status: original === null ? 'UNSAVED' : 'MODIFIED_AFTER_SAVE',
+      });
     },
     async listTrash() {
       return input.trash?.listTrash() ?? [];

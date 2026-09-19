@@ -1,5 +1,6 @@
 import type { RuleRef } from '../../domain/mahjong/calculator-document';
 import type { WaitSortMode } from '../ready-analysis';
+import type { AppStore } from '../state/create-app-store';
 
 export type TestingRuleConfirmation = Readonly<{
   ruleRef: RuleRef;
@@ -7,6 +8,12 @@ export type TestingRuleConfirmation = Readonly<{
 }>;
 
 export type CalculatorPreferences = Readonly<{
+  theme: 'system' | 'light' | 'dark';
+  motion: 'system' | 'reduced' | 'full';
+  defaultCopyFormat: 'concise' | 'detailed';
+  autoUpdateCheckEnabled: boolean;
+  lastUpdateCheckAt: string | null;
+  pwaPromptState: 'unseen' | 'dismissed' | 'accepted';
   lastRuleRef: RuleRef | null;
   recentRuleRefs: readonly RuleRef[];
   ruleNoticeSeen: boolean;
@@ -19,8 +26,18 @@ export interface CalculatorPreferencesPort {
   read(): Promise<CalculatorPreferences>;
   write(preferences: CalculatorPreferences): Promise<void>;
 }
+export interface ManagedCalculatorPreferencesPort extends CalculatorPreferencesPort {
+  readonly state: AppStore<{ preferences: CalculatorPreferences; warning: string | null }>;
+  reset(): void;
+}
 
 export const DEFAULT_CALCULATOR_PREFERENCES: CalculatorPreferences = Object.freeze({
+  theme: 'system',
+  motion: 'system',
+  defaultCopyFormat: 'concise',
+  autoUpdateCheckEnabled: true,
+  lastUpdateCheckAt: null,
+  pwaPromptState: 'unseen',
   lastRuleRef: null,
   recentRuleRefs: Object.freeze([]),
   ruleNoticeSeen: false,
@@ -30,13 +47,19 @@ export const DEFAULT_CALCULATOR_PREFERENCES: CalculatorPreferences = Object.free
 });
 
 function cloneRuleRef(ruleRef: RuleRef): RuleRef {
-  return Object.freeze({ ...ruleRef });
+  return Object.freeze({ ruleId: ruleRef.ruleId, ruleVersion: ruleRef.ruleVersion });
 }
 
 export function cloneCalculatorPreferences(
   preferences: CalculatorPreferences,
 ): CalculatorPreferences {
   return Object.freeze({
+    theme: preferences.theme,
+    motion: preferences.motion,
+    defaultCopyFormat: preferences.defaultCopyFormat,
+    autoUpdateCheckEnabled: preferences.autoUpdateCheckEnabled,
+    lastUpdateCheckAt: preferences.lastUpdateCheckAt,
+    pwaPromptState: preferences.pwaPromptState,
     lastRuleRef: preferences.lastRuleRef === null ? null : cloneRuleRef(preferences.lastRuleRef),
     recentRuleRefs: Object.freeze(preferences.recentRuleRefs.map(cloneRuleRef)),
     ruleNoticeSeen: preferences.ruleNoticeSeen,
