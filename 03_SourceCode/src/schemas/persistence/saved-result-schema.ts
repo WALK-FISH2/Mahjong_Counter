@@ -130,7 +130,7 @@ const nodeSchema = z.strictObject({
   reasonCode: idSchema,
   data: ruleDataObjectSchema,
 });
-const candidateSchema = z.strictObject({
+export const candidateSchema = z.strictObject({
   candidateId: idSchema,
   placed: z.strictObject({
     decomposition: decompositionSchema,

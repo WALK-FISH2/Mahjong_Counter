@@ -1641,7 +1641,7 @@ Gate 证据：`docs/verification/m9/gate.md`
 
 ## T1001 实现结果文字 Formatter
 
-- 状态：TODO
+- 状态：DONE
 - 目标：简洁版/详细版，不依赖 DOM。
 - 依赖：M9
 - 测试：稳定文本
@@ -1649,7 +1649,7 @@ Gate 证据：`docs/verification/m9/gate.md`
 
 ## T1002 实现 Tile Unicode + 中文映射
 
-- 状态：TODO
+- 状态：DONE
 - 目标：复制牌面保持分组。
 - 依赖：T101、T1001
 - 测试：所有牌编码
@@ -1657,7 +1657,7 @@ Gate 证据：`docs/verification/m9/gate.md`
 
 ## T1003 定义 SharePayload Schema
 
-- 状态：TODO
+- 状态：DONE
 - 目标：只包含当前分享所需数据。
 - 依赖：T106、T612
 - 验收：contentType 只允许正式合法、不能胡、听牌/弃牌分析；`INCOMPLETE_CONTEXT`、Quick Calc、Needs Correction 和 Engine Error 均拒绝生成正式 Payload。
@@ -1666,7 +1666,7 @@ Gate 证据：`docs/verification/m9/gate.md`
 
 ## T1004 实现 Share Codec
 
-- 状态：TODO
+- 状态：DONE
 - 目标：Canonical JSON → DEFLATE → Base64URL。
 - 依赖：T1003
 - 测试：roundtrip/property test
@@ -1674,7 +1674,7 @@ Gate 证据：`docs/verification/m9/gate.md`
 
 ## T1005 实现分享前摘要
 
-- 状态：TODO
+- 状态：DONE
 - 目标：规则/版本/类型/结果层/调整/完整牌面。
 - 依赖：T1003
 - 测试：各种内容类型
@@ -1682,7 +1682,7 @@ Gate 证据：`docs/verification/m9/gate.md`
 
 ## T1006 实现打开分享内容流程
 
-- 状态：TODO
+- 状态：DONE
 - 目标：先校验，再 Replace Guard。
 - 依赖：T1004、T916
 - 测试：有 Draft 时不丢失

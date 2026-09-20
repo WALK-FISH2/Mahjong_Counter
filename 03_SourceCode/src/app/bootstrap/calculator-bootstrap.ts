@@ -75,6 +75,8 @@ import {
   type LocalDataManagement,
 } from '../../application/persistence/local-data-management';
 import type { CalculatorDocument } from '../../domain/mahjong';
+import { createShareService, type ShareService } from '../../application/share/share-service';
+import { createShareCodec } from '../../infrastructure/share/share-codec';
 
 export type CalculatorRuntime = Readonly<{
   store: CalculatorStore;
@@ -89,6 +91,7 @@ export type CalculatorRuntime = Readonly<{
   analysisLifecycle: AnalysisLifecycleCoordinator;
   encyclopediaRuleCases: readonly EncyclopediaRuleCase[];
   savedExamples: SavedExampleService;
+  share?: ShareService;
   persistence?: Readonly<{
     storage: StorageCapability;
     drafts: DraftController;
@@ -245,6 +248,22 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
     window.addEventListener('hashchange', () => {
       void draftController.flush();
     });
+    const readyAnalysisService = createReadyAnalysisService({
+      client: engineWorkerClient,
+      engineVersion: ENGINE_VERSION,
+      getCurrentDocumentRevision: () => storeRef.current?.getState().document.revision ?? 0,
+    });
+    const share = createShareService({
+      calculator: store,
+      codec: createShareCodec(),
+      rules: ruleRepository,
+      replaceGuard,
+      ready: readyAnalysisService,
+      engineVersion: ENGINE_VERSION,
+      canUseRule: (rule) =>
+        canUseHistoricalRule(rule, ENGINE_VERSION, commonSimpleCapabilityRegistry),
+      isEngineError: () => engineErrorRecovery.getState().status === 'error',
+    });
     return Object.freeze({
       store,
       quickCalcEvaluator: createQuickCalcEvaluator({
@@ -257,12 +276,9 @@ export function loadCalculatorRuntime(): Promise<CalculatorRuntime> {
       localData,
       replaceGuard,
       savedExamples,
+      share,
       persistence: { storage, drafts: draftController, history },
-      readyAnalysisService: createReadyAnalysisService({
-        client: engineWorkerClient,
-        engineVersion: ENGINE_VERSION,
-        getCurrentDocumentRevision: () => storeRef.current?.getState().document.revision ?? 0,
-      }),
+      readyAnalysisService,
       engineErrorRecovery,
       analysisLifecycle,
       encyclopediaRuleCases: COMMON_SIMPLE_STRUCTURE_RULE_CASES,

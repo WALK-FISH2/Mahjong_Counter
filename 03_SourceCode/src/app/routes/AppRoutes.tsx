@@ -11,6 +11,7 @@ import type { CalculatorRuntime } from '../bootstrap/calculator-bootstrap';
 import { replayOnboarding } from '../../application/preferences';
 import { PersistencePanel } from '../../features/saved-examples/PersistencePanel';
 import { TrashExamplesPage } from '../../pages/saved-examples/TrashExamplesPage';
+import { SharePage } from '../../pages/share/SharePage';
 
 export type AppRoutesProps = Readonly<{
   calculatorStore?: CalculatorStore | undefined;
@@ -43,6 +44,10 @@ export function AppRoutes({
             }
           />
           <Route path="rules" element={<EncyclopediaPage runtime={calculatorRuntime} />} />
+          <Route
+            path="share/:payload"
+            element={<SharePage key={window.location.hash} service={calculatorRuntime?.share} />}
+          />
           <Route
             path="rules/:ruleId/:ruleVersion"
             element={<EncyclopediaPage runtime={calculatorRuntime} />}

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { CandidateResult, SystemEvaluation } from '../../domain/engine/evaluation';
 import {
   FORCE_INCLUDE_REASONS,
@@ -30,6 +31,7 @@ export type AnalysisResultProps = Readonly<{
   onClearFanAdjustment?: (patternId: string) => void;
   onContinueDiscardAnalysis?: () => void;
   onSave?: () => void;
+  resultActions?: ReactNode;
   readOnly?: boolean;
 }>;
 
@@ -471,6 +473,7 @@ export function AnalysisResult({
   onClearFanAdjustment,
   onContinueDiscardAnalysis,
   onSave,
+  resultActions,
   readOnly = false,
 }: AnalysisResultProps) {
   const candidate = selectedCandidate(result, selectedCandidateId);
@@ -592,12 +595,13 @@ export function AnalysisResult({
               保存牌例
             </button>
           )}
-          {actionPolicy.copy && (
+          {resultActions}
+          {resultActions === undefined && actionPolicy.copy && (
             <button type="button" className="secondary-action">
               复制结果
             </button>
           )}
-          {actionPolicy.share && (
+          {resultActions === undefined && actionPolicy.share && (
             <button type="button" className="secondary-action">
               分享链接
             </button>

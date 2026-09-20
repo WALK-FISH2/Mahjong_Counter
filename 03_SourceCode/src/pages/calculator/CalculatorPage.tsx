@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import type { CalculatorDocument } from '../../domain/mahjong';
+import { ShareActions } from '../../features/share/ShareActions';
+import { SharedOriginPanel } from '../../features/share/SharedOriginPanel';
 import { useStore } from 'zustand';
 import { useOutletContext } from 'react-router-dom';
 
@@ -183,6 +186,7 @@ function LoadedCalculatorPage({ store, runtime, persistent = true }: LoadedCalcu
     'idle' | 'analyzing' | 'result' | 'error'
   >('idle');
   const [readyAnalysisResult, setReadyAnalysisResult] = useState<ReadyAnalysisOutcome | null>(null);
+  const [readyDocument, setReadyDocument] = useState<CalculatorDocument | null>(null);
   const [readyAnalysisRevision, setReadyAnalysisRevision] = useState<number | null>(null);
   const [selectedDiscardTile, setSelectedDiscardTile] = useState<TileCode | null>(null);
   const [legalWinDiscardView, setLegalWinDiscardView] = useState(false);
@@ -479,6 +483,7 @@ function LoadedCalculatorPage({ store, runtime, persistent = true }: LoadedCalcu
       const outcome = await runtime.readyAnalysisService.analyze(currentDocument, currentRule);
       if (readyAnalysisRequestRef.current !== requestToken) return;
       setReadyAnalysisResult(outcome);
+      setReadyDocument(currentDocument);
       setReadyAnalysisStatus('result');
       setSelectedDiscardTile(
         outcome.kind === 'discard-to-ready'
@@ -511,6 +516,7 @@ function LoadedCalculatorPage({ store, runtime, persistent = true }: LoadedCalcu
       );
       if (readyAnalysisRequestRef.current !== requestToken) return;
       setReadyAnalysisResult(outcome);
+      setReadyDocument(currentDocument);
       setReadyAnalysisStatus('result');
       setSelectedDiscardTile(
         sortDiscardCandidates(outcome.primary.candidates, waitSortMode)[0]?.discard ?? null,
@@ -790,6 +796,8 @@ function LoadedCalculatorPage({ store, runtime, persistent = true }: LoadedCalcu
             onUndoModeChange={undoContextRemovals}
           />
 
+          {runtime?.share !== undefined && <SharedOriginPanel service={runtime.share} />}
+
           <ReadyAnalysisPanel
             availableKind={activeLegalWinDiscardView ? 'discard-to-ready' : readyAnalysisKind}
             status={currentReadyAnalysisStatus}
@@ -819,6 +827,24 @@ function LoadedCalculatorPage({ store, runtime, persistent = true }: LoadedCalcu
               analysisSectionRef.current?.focus();
             }}
           />
+
+          {runtime?.share !== undefined &&
+            currentReadyAnalysisResult !== null &&
+            currentReadyAnalysisStatus === 'result' &&
+            readyDocument !== null && (
+              <ShareActions
+                service={runtime.share}
+                calculator={store}
+                preferences={runtime.preferencesPort}
+                capture={() =>
+                  runtime.share!.captureReady(
+                    currentReadyAnalysisResult,
+                    readyDocument,
+                    activeLegalWinDiscardView,
+                  )
+                }
+              />
+            )}
 
           <section
             ref={analysisSectionRef}
@@ -871,6 +897,24 @@ function LoadedCalculatorPage({ store, runtime, persistent = true }: LoadedCalcu
                     canSaveExample(store.getState()),
                 }}
                 onSave={() => setSaveMode('new')}
+                resultActions={
+                  runtime?.share === undefined ? undefined : (
+                    <ShareActions
+                      service={runtime.share}
+                      calculator={store}
+                      preferences={runtime.preferencesPort}
+                      capture={() =>
+                        runtime.share!.captureFormal(showQuickCalc ? 'quick-calc' : 'formal')
+                      }
+                      copy={(format) => runtime.share!.copyFormal(format)}
+                      shareAllowed={
+                        !showQuickCalc &&
+                        !legalWinDiscardView &&
+                        getResultActionPolicy(analysisResult.status).share
+                      }
+                    />
+                  )
+                }
                 onSelectLayer={setActiveEvaluationLayer}
                 onApplyFanAdjustment={(patternId, action) => {
                   applyResult(
